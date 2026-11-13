@@ -19,7 +19,9 @@ describe('parseWire', () => {
         msg: { id: 'f', from: 'a', fromName: 'Ana', text: '', ts: 2, attachment: { name: 'a.png', size: 3, mime: 'image/png' } }
       },
       { t: 'file-chunk', id: 'f', data: 'AAAA' },
-      { t: 'file-end', id: 'f' }
+      { t: 'file-end', id: 'f' },
+      { t: 'laser', x: 0.25, y: 1, click: false },
+      { t: 'laser-off' }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
@@ -42,6 +44,8 @@ describe('parseWire', () => {
     expect(parseWire('{"t":"file-chunk","id":"f"}')).toBeNull()
     expect(parseWire('{"t":"signal","payload":{"role":"sharer","channel":"radio","kind":"stop"}}')).toBeNull()
     expect(parseWire('{"t":"presence","liveAudio":"sim"}')).toBeNull()
+    expect(parseWire('{"t":"laser","x":1.2,"y":0,"click":false}')).toBeNull()
+    expect(parseWire('{"t":"laser","x":0.5,"y":0.5}')).toBeNull()
   })
 })
 

@@ -49,10 +49,14 @@ export type WireMessage =
   | { t: 'file-start'; msg: ChatMessage & { attachment: Attachment } }
   | { t: 'file-chunk'; id: string; data: string }
   | { t: 'file-end'; id: string }
+  | { t: 'laser'; x: number; y: number; click: boolean }
+  | { t: 'laser-off' }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
 const isString = (v: unknown): v is string => typeof v === 'string'
+
+export const isUnit = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1
 
 export function isPeerInfo(v: unknown): v is PeerInfo {
   return isObject(v) && isString(v.id) && v.id.length > 0 && isString(v.name)
@@ -125,6 +129,12 @@ export function parseWire(raw: string): WireMessage | null {
       return isString(data.id) && isString(data.data) ? (data as WireMessage) : null
     case 'file-end':
       return isString(data.id) ? (data as WireMessage) : null
+    case 'laser':
+      return isUnit(data.x) && isUnit(data.y) && typeof data.click === 'boolean'
+        ? { t: 'laser', x: data.x, y: data.y, click: data.click }
+        : null
+    case 'laser-off':
+      return { t: 'laser-off' }
     default:
       return null
   }
