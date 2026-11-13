@@ -42,6 +42,7 @@ export type PairlanApi = {
   getState(): Promise<InitialState>
   sendChat(text: string): Promise<ChatMessage | null>
   sendTyping(): void
+  clearHistory(): Promise<void>
   setConfig(patch: Partial<AppConfig>): Promise<AppConfig>
   connectManual(address: string): Promise<boolean>
   setSearching(searching: boolean): void

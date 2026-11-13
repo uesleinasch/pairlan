@@ -145,6 +145,11 @@ export function App() {
     [show]
   )
 
+  const clearHistory = useCallback(async () => {
+    await api.clearHistory()
+    setMessages([])
+  }, [])
+
   const send = useCallback(async (text: string) => {
     const msg = await api.sendChat(text)
     if (msg) setMessages((prev) => [...prev, msg])
@@ -184,6 +189,7 @@ export function App() {
         onRequestControl={requestControl}
         onSend={send}
         onAttached={appendMessages}
+        onClearHistory={clearHistory}
       />
     )
   }
@@ -247,6 +253,7 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         onChange={(patch) => void api.setConfig(patch)}
         onConnect={api.connectManual}
+        onClearHistory={clearHistory}
       />
       <Snackbar item={snackbar.item} onDismiss={snackbar.dismiss} />
     </main>

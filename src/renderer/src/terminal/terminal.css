@@ -445,6 +445,10 @@
   padding: 0 4px;
 }
 
+.term-link.term-danger {
+  color: var(--term-red);
+}
+
 .term-app :focus-visible {
   outline: 1px dotted var(--term-dim);
   outline-offset: 0;

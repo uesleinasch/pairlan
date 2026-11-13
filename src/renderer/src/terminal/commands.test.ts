@@ -22,6 +22,7 @@ describe('completeCommand', () => {
   it('lists commands for a prefix', () => {
     expect(completeCommand('/te')).toEqual(['/tela', '/tema'])
     expect(completeCommand('/co')).toEqual(['/controle', '/conectar', '/config'])
+    expect(completeCommand('/ap')).toEqual(['/apagar'])
     expect(completeCommand('/tela x')).toEqual([])
     expect(completeCommand('oi')).toEqual([])
   })

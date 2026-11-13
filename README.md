@@ -3,7 +3,7 @@
 Chat e compartilhamento de tela para pair programming, 100% em rede local. É feito para duas pessoas: não tem senha nem servidor, e nada sai da LAN.
 
 - O par é achado sozinho na rede (broadcast UDP). Se isso falhar, dá para digitar o IP.
-- O chat aceita blocos de código com ` ``` `, mostra quando o outro está digitando e guarda o histórico.
+- O chat aceita blocos de código com ` ``` `, mostra quando o outro está digitando e guarda o histórico. Dá para apagar o histórico em Configurações (ou `/apagar` no modo terminal). Só apaga deste PC; os arquivos recebidos ficam na pasta.
 - Anexos: botão 📎, arrastar ou colar (inclusive print da área de transferência). Até 500 MB por arquivo. O que chega vai para `~/Downloads/PairLAN`.
 - Walkie-talkie: segure 🎙 ou **Ctrl+Espaço** para falar e solte para encerrar. Quando o bipe toca, o canal está no ar.
   - Se o outro estiver em 🔊, ouve na hora.

@@ -314,6 +314,8 @@ async function boot(): Promise<void> {
     return msg
   })
 
+  ipcMain.handle('history:clear', () => history.clear())
+
   ipcMain.on('chat:typing', () => link.send({ t: 'typing' }))
 
   ipcMain.on('rtc:signal', (_e, payload: unknown) => {

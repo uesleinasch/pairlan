@@ -10,6 +10,7 @@ export type CommandName =
   | 'config'
   | 'tema'
   | 'limpar'
+  | 'apagar'
   | 'help'
 
 type CommandInfo = { name: CommandName; usage: string; help: string; group: string }
@@ -26,6 +27,7 @@ export const COMMANDS: CommandInfo[] = [
   { name: 'config', usage: '/config', help: 'configurações', group: 'app' },
   { name: 'tema', usage: '/tema', help: 'sair do modo terminal', group: 'app' },
   { name: 'limpar', usage: '/limpar', help: 'limpar a tela (não apaga o histórico)', group: 'app' },
+  { name: 'apagar', usage: '/apagar', help: 'apagar o histórico deste pc (pede confirmação)', group: 'app' },
   { name: 'help', usage: '/help', help: 'esta ajuda', group: 'app' }
 ]
 
