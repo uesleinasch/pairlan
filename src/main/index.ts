@@ -26,7 +26,14 @@ if (runtime.profile) {
   app.setPath('userData', join(app.getPath('appData'), `pairlan-${runtime.profile}`))
 }
 
-if (!app.requestSingleInstanceLock()) {
+// Wayland has no always-on-top; ozone is picked before this script runs, so appendSwitch is too late.
+const needsX11 =
+  process.platform === 'linux' && app.isPackaged && app.commandLine.getSwitchValue('ozone-platform') === 'wayland'
+
+if (needsX11) {
+  app.relaunch({ execPath: process.env.APPIMAGE, args: [...process.argv.slice(1), '--ozone-platform=x11'] })
+  app.exit(0)
+} else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.whenReady().then(boot)
@@ -61,7 +68,10 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
   w.setContentProtection(true)
   w.webContents.on('will-navigate', (e) => e.preventDefault())
   w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  w.once('ready-to-show', () => w.show())
+  w.once('ready-to-show', () => {
+    w.show()
+    w.setAlwaysOnTop(alwaysOnTop)
+  })
   w.on('close', (e) => {
     if (quitting) return
     e.preventDefault()
