@@ -444,3 +444,14 @@
   cursor: pointer;
   padding: 0 4px;
 }
+
+.term-app :focus-visible {
+  outline: 1px dotted var(--term-dim);
+  outline-offset: 0;
+}
+
+.term-app .term-input:focus,
+.term-app .term-input:focus-visible,
+.term-app .term-field input:focus-visible {
+  outline: none;
+}
