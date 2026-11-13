@@ -76,6 +76,26 @@ describe('PeerLink', () => {
     expect(a.status()).toMatchObject({ state: 'connected', peer: { id: 'b' } })
     expect(c.isConnected()).toBe(false)
   })
+
+  it('stops retrying after cancelDial', async () => {
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    const b = new PeerLink({ id: 'b', name: 'Bia' }, 0)
+    links.push(a, b)
+    await Promise.all([a.start(), b.start()])
+    const deadPort = b.listeningPort()
+    await b.stop()
+
+    a.connectTo('127.0.0.1', deadPort)
+    expect(a.status().state).toBe('connecting')
+    a.cancelDial()
+    expect(a.status().state).toBe('idle')
+
+    const revived = new PeerLink({ id: 'b', name: 'Bia' }, deadPort)
+    links.push(revived)
+    await revived.start()
+    await new Promise((r) => setTimeout(r, 1500))
+    expect(a.status().state).toBe('idle')
+  })
 })
 
 describe('parseAddress', () => {

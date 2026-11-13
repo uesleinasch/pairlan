@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PROTOCOL_VERSION } from '../shared/protocol'
-import { broadcastAddresses, encodeBeacon, parseBeacon, shouldInitiate, type Beacon } from './discovery'
+import { broadcastAddresses, Discovery, encodeBeacon, parseBeacon, shouldInitiate, type Beacon } from './discovery'
 
 const beacon: Beacon = { app: 'pairlan', v: PROTOCOL_VERSION, id: 'abc', name: 'Ana', linkPort: 47801 }
 
@@ -35,5 +35,20 @@ describe('shouldInitiate', () => {
   it('lets exactly one side open the link', () => {
     expect(shouldInitiate('a', 'b')).toBe(true)
     expect(shouldInitiate('b', 'a')).toBe(false)
+  })
+})
+
+describe('Discovery', () => {
+  it('starts once and can restart after stop', async () => {
+    const d = new Discovery({ port: 0, beacon: () => beacon })
+    expect(d.isRunning()).toBe(false)
+    d.start()
+    d.start()
+    expect(d.isRunning()).toBe(true)
+    d.stop()
+    expect(d.isRunning()).toBe(false)
+    d.start()
+    expect(d.isRunning()).toBe(true)
+    d.stop()
   })
 })

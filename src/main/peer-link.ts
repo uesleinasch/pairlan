@@ -91,6 +91,16 @@ export class PeerLink extends EventEmitter<Events> {
     this.dial()
   }
 
+  cancelDial(): void {
+    this.target = null
+    this.attempts = 0
+    this.clearRetry()
+    const pending = this.pending
+    this.pending = null
+    pending?.terminate()
+    this.emitStatus()
+  }
+
   send(m: WireMessage): boolean {
     if (this.socket?.readyState !== WebSocket.OPEN) return false
     this.socket.send(encodeWire(m))
