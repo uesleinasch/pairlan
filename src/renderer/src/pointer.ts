@@ -12,3 +12,13 @@ export function videoPoint(rect: Rect, videoWidth: number, videoHeight: number, 
   if (x < 0 || x > 1 || y < 0 || y > 1) return null
   return { x, y }
 }
+
+const LINE_PX = 40
+const NOTCH_PX = 100
+
+export function wheelSteps(delta: number, deltaMode: number): number {
+  if (!delta) return 0
+  const px = deltaMode === 1 ? delta * LINE_PX : deltaMode === 2 ? delta * 800 : delta
+  const steps = Math.sign(px) * Math.max(1, Math.round(Math.abs(px) / NOTCH_PX))
+  return Math.max(-20, Math.min(20, steps))
+}
