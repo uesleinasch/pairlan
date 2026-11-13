@@ -3,10 +3,10 @@ import type { AppConfig } from '../../../shared/api'
 
 type Props = {
   config: AppConfig
-  title: string
   onClose: () => void
   onChange: (patch: Partial<AppConfig>) => void
   onConnect: (address: string) => Promise<boolean>
+  onClearHistory: () => Promise<void>
 }
 
 const MIN_OPACITY = 0.3
@@ -16,10 +16,13 @@ const bar = (value: number) => {
   return `[${'█'.repeat(filled)}${'░'.repeat(10 - filled)}] ${Math.round(value * 100)}%`
 }
 
-export function TermConfig({ config, title, onClose, onChange, onConnect }: Props) {
+export function TermConfig({ config, onClose, onChange, onConnect, onClearHistory }: Props) {
   const [name, setName] = useState(config.name)
+  const [path, setPath] = useState(config.terminalPath)
+  const [branch, setBranch] = useState(config.terminalBranch)
   const [address, setAddress] = useState(config.manualPeer)
   const [addressError, setAddressError] = useState('')
+  const [confirmClear, setConfirmClear] = useState(false)
   const box = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -93,7 +96,34 @@ export function TermConfig({ config, title, onClose, onChange, onConnect }: Prop
           {toggle('notifyMinimized', 'notificar quando minimizado')}
           {toggle('terminalMode', 'modo terminal')}
         </div>
-        <p className="term-dim">    título: {title}</p>
+
+        <p className="term-dim">─ disfarce</p>
+        <label className="term-field">
+          <span>pasta</span>
+          <input value={path} maxLength={60} onChange={(e) => setPath(e.target.value)} onBlur={() => onChange({ terminalPath: path })} />
+        </label>
+        <label className="term-field">
+          <span>branch</span>
+          <input value={branch} maxLength={40} onChange={(e) => setBranch(e.target.value)} onBlur={() => onChange({ terminalBranch: branch })} />
+        </label>
+        <p className="term-dim">    a pasta também vira o título da janela</p>
+
+        <p className="term-dim">─ histórico</p>
+        {confirmClear ? (
+          <p>
+            apagar todo o histórico deste pc?{' '}
+            <button type="button" className="term-link term-danger" onClick={() => void onClearHistory().then(() => setConfirmClear(false))}>
+              sim, apagar
+            </button>{' '}
+            <button type="button" className="term-link" onClick={() => setConfirmClear(false)}>
+              cancelar
+            </button>
+          </p>
+        ) : (
+          <button type="button" className="term-opt" onClick={() => setConfirmClear(true)}>
+            [apagar histórico]
+          </button>
+        )}
 
         <p className="term-dim">─ atalhos</p>
         <pre className="term-pre">{'  Ctrl+Espaço   falar (walkie)\n  Enter         enviar\n  Tab           completar comando\n  Esc           fechar esta janela'}</pre>

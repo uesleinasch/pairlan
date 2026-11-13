@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type SnackbarAction = { label: string; run: () => void }
-export type SnackbarItem = { id: number; text: string; action?: SnackbarAction }
+export type SnackbarItem = { id: number; text: string; action?: SnackbarAction; tone: 'info' | 'error' }
 
 const HIDE_AFTER_MS = 6000
 
@@ -9,9 +9,9 @@ export function useSnackbar() {
   const [item, setItem] = useState<SnackbarItem | null>(null)
   const seq = useRef(0)
 
-  const show = useCallback((text: string, action?: SnackbarAction) => {
+  const show = useCallback((text: string, action?: SnackbarAction, tone: SnackbarItem['tone'] = 'error') => {
     seq.current++
-    setItem({ id: seq.current, text, action })
+    setItem({ id: seq.current, text, action, tone })
   }, [])
 
   const dismiss = useCallback(() => setItem(null), [])

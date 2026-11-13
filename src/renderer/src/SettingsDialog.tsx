@@ -7,6 +7,7 @@ type Props = {
   onClose: () => void
   onChange: (patch: Partial<AppConfig>) => void
   onConnect: (address: string) => Promise<boolean>
+  onClearHistory: () => Promise<void>
 }
 
 const valueOf = (e: Event) => (e.target as HTMLInputElement).value
@@ -20,10 +21,11 @@ const SHORTCUTS: [string, string][] = [
   ['Esc', 'Fechar esta janela']
 ]
 
-export function SettingsDialog({ open, config, onClose, onChange, onConnect }: Props) {
+export function SettingsDialog({ open, config, onClose, onChange, onConnect, onClearHistory }: Props) {
   const [name, setName] = useState(config.name)
   const [address, setAddress] = useState(config.manualPeer)
   const [addressError, setAddressError] = useState('')
+  const [confirmClear, setConfirmClear] = useState(false)
   const opacity = Math.round(config.opacity * 100)
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect }: P
     setName(config.name)
     setAddress(config.manualPeer)
     setAddressError('')
+    setConfirmClear(false)
   }, [open, config.name, config.manualPeer])
 
   const connect = async () => {
@@ -121,6 +124,29 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect }: P
               onchange={(e: Event) => onChange({ terminalMode: selectedOf(e) })}
             />
           </label>
+        </section>
+
+        <section>
+          <h2 className="type-title-small">Histórico</h2>
+          <p className="settings-note type-body-small">
+            Apaga as mensagens deste PC. O par continua com as dele, e os arquivos recebidos ficam em Downloads/PairLAN.
+          </p>
+          {confirmClear ? (
+            <div className="settings-row">
+              <md-filled-button
+                className="danger"
+                onClick={() => void onClearHistory().then(() => setConfirmClear(false))}
+              >
+                Apagar tudo
+              </md-filled-button>
+              <md-text-button onClick={() => setConfirmClear(false)}>Cancelar</md-text-button>
+            </div>
+          ) : (
+            <md-filled-tonal-button onClick={() => setConfirmClear(true)}>
+              <md-icon slot="icon">delete</md-icon>
+              Apagar histórico
+            </md-filled-tonal-button>
+          )}
         </section>
 
         <section>

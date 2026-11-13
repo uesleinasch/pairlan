@@ -10,6 +10,7 @@ type Props = {
   peerName: string
   canControl: boolean
   variant?: 'm3' | 'terminal'
+  onRequestControl: () => void
 }
 
 const pointOf = (e: PointerEvent<HTMLVideoElement>): Point | null => {
@@ -17,7 +18,7 @@ const pointOf = (e: PointerEvent<HTMLVideoElement>): Point | null => {
   return videoPoint(v.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY)
 }
 
-export function ScreenView({ stream, peerName, canControl, variant = 'm3' }: Props) {
+export function ScreenView({ stream, peerName, canControl, variant = 'm3', onRequestControl }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const boxRef = useRef<HTMLElement>(null)
   const [actualSize, setActualSize] = useState(false)
@@ -106,6 +107,7 @@ export function ScreenView({ stream, peerName, canControl, variant = 'm3' }: Pro
   }
 
   const toggle = (next: Mode) => setMode((current) => (current === next ? 'view' : next))
+  const onControl = () => (canControl ? toggle('control') : onRequestControl())
 
   const fullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen()
@@ -115,7 +117,7 @@ export function ScreenView({ stream, peerName, canControl, variant = 'm3' }: Pro
   const LaserButton = activeMode === 'laser' ? 'md-filled-icon-button' : 'md-icon-button'
   const ControlButton = activeMode === 'control' ? 'md-filled-icon-button' : 'md-icon-button'
   const controlTitle = !canControl
-    ? `${peerName} não liberou o controle`
+    ? `Pedir para ${peerName} liberar o mouse e o teclado`
     : activeMode === 'control'
       ? 'Parar de controlar'
       : `Controlar mouse e teclado de ${peerName}`
@@ -132,7 +134,7 @@ export function ScreenView({ stream, peerName, canControl, variant = 'm3' }: Pro
           <button type="button" className={tg(activeMode === 'laser')} aria-pressed={activeMode === 'laser'} title="Laser: apontar na tela do par" onClick={() => toggle('laser')}>
             laser
           </button>
-          <button type="button" className={tg(activeMode === 'control')} aria-pressed={activeMode === 'control'} title={controlTitle} disabled={!canControl} onClick={() => toggle('control')}>
+          <button type="button" className={tg(activeMode === 'control')} aria-pressed={activeMode === 'control'} title={controlTitle} onClick={onControl}>
             controle
           </button>
           <button type="button" className={tg(actualSize)} aria-pressed={actualSize} title="Tamanho real (100%)" onClick={() => setActualSize((v) => !v)}>
@@ -157,8 +159,7 @@ export function ScreenView({ stream, peerName, canControl, variant = 'm3' }: Pro
             <md-icon>stylus_laser_pointer</md-icon>
           </LaserButton>
           <ControlButton
-            onClick={() => toggle('control')}
-            disabled={!canControl}
+            onClick={onControl}
             aria-pressed={activeMode === 'control'}
             aria-label={controlTitle}
             title={controlTitle}

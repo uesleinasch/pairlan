@@ -9,6 +9,8 @@ export type AppConfig = {
   manualPeer: string
   liveAudio: boolean
   terminalMode: boolean
+  terminalPath: string
+  terminalBranch: string
 }
 
 export type LinkStatus =
@@ -17,7 +19,6 @@ export type LinkStatus =
 
 export type InitialState = {
   self: PeerInfo
-  prompt: string
   config: AppConfig
   status: LinkStatus
   searching: boolean
@@ -41,6 +42,7 @@ export type PairlanApi = {
   getState(): Promise<InitialState>
   sendChat(text: string): Promise<ChatMessage | null>
   sendTyping(): void
+  clearHistory(): Promise<void>
   setConfig(patch: Partial<AppConfig>): Promise<AppConfig>
   connectManual(address: string): Promise<boolean>
   setSearching(searching: boolean): void
@@ -56,6 +58,8 @@ export type PairlanApi = {
   setControl(allowed: boolean): Promise<{ ok: boolean; error?: string }>
   onControlState(cb: (allowed: boolean) => void): Unsubscribe
   onPeerControl(cb: (allowed: boolean) => void): Unsubscribe
+  requestControl(): void
+  onControlRequested(cb: () => void): Unsubscribe
   sendInput(input: RemoteInput): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe

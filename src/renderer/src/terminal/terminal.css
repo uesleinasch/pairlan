@@ -9,6 +9,8 @@
   --term-red: #ff7b72;
   --term-bar: #4e9a06;
   --term-bar-dark: #3b7505;
+  --term-pl-blue: #8aadf4;
+  --term-pl-green: #a6da95;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -201,12 +203,56 @@
 .term-prompt {
   display: flex;
   align-items: flex-start;
-  padding: 6px 0;
+  padding: 0 0 6px;
   cursor: text;
 }
 
-.term-prompt > .term-line {
+.term-chev {
+  color: var(--term-pl-green);
+  font-weight: 700;
   white-space: pre;
+}
+
+.term-pl {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin-top: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.term-pl-path {
+  padding: 0 1ch;
+  background: var(--term-pl-blue);
+  color: #1e2030;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term-pl-sep {
+  position: relative;
+  flex: none;
+  width: 1ch;
+  background: var(--term-pl-green);
+}
+
+.term-pl-sep::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--term-pl-blue);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.term-pl-git {
+  padding: 0 1ch;
+  background: var(--term-pl-green);
+  color: #2f4a2c;
+}
+
+.term-pl-fade {
+  color: var(--term-pl-green);
 }
 
 .term-input {
@@ -215,7 +261,12 @@
   margin: 0;
   padding: 0;
   border: 0;
+  border-radius: 0;
   outline: none;
+  box-shadow: none;
+  appearance: none;
+  overflow: hidden;
+  caret-shape: block;
   resize: none;
   background: transparent;
   color: var(--term-fg);
@@ -392,4 +443,19 @@
   all: unset;
   cursor: pointer;
   padding: 0 4px;
+}
+
+.term-link.term-danger {
+  color: var(--term-red);
+}
+
+.term-app :focus-visible {
+  outline: 1px dotted var(--term-dim);
+  outline-offset: 0;
+}
+
+.term-app .term-input:focus,
+.term-app .term-input:focus-visible,
+.term-app .term-field input:focus-visible {
+  outline: none;
 }
