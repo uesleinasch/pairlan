@@ -59,8 +59,10 @@ export function Chat({ selfId, messages, connected, peerTyping, onSend, onTyping
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={connected ? 'Mensagem (Shift+Enter quebra linha, ``` para código)' : 'Aguardando o par…'}
-          disabled={!connected}
+          placeholder={
+            connected ? 'Mensagem (Shift+Enter quebra linha, ``` para código)' : 'Sem par conectado — dá para escrever, envia quando conectar'
+          }
+          autoFocus
           rows={3}
         />
         <button onClick={() => void submit()} disabled={!connected || !draft.trim()}>
