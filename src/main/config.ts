@@ -35,7 +35,7 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim().slice(0, 40) : defaultName(),
     opacity: clampOpacity(raw.opacity),
     alwaysOnTop: raw.alwaysOnTop === true,
-    notifications: raw.notifications === true,
+    notifyMinimized: raw.notifyMinimized !== false,
     manualPeer: typeof raw.manualPeer === 'string' ? raw.manualPeer.trim() : '',
     liveAudio: raw.liveAudio !== false
   }

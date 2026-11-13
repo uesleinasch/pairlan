@@ -101,13 +101,13 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect }: P
           </label>
           <label className="settings-switch">
             <span>
-              <span className="type-body-medium">Notificação do sistema</span>
-              <span className="type-body-small">Aparece se você compartilhar a tela inteira no Teams</span>
+              <span className="type-body-medium">Notificar quando minimizado</span>
+              <span className="type-body-small">Só com a janela minimizada ou na bandeja. Aparece se você compartilhar a tela inteira no Teams</span>
             </span>
             <md-switch
-              selected={config.notifications}
-              aria-label="Notificação do sistema"
-              onchange={(e: Event) => onChange({ notifications: selectedOf(e) })}
+              selected={config.notifyMinimized}
+              aria-label="Notificar quando minimizado"
+              onchange={(e: Event) => onChange({ notifyMinimized: selectedOf(e) })}
             />
           </label>
         </section>
