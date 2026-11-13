@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { clampOpacity, ConfigStore, LINK_PORT, runtimeOptions } from './config'
+import { clampOpacity, ConfigStore, LINK_PORT, normalizeConfig, runtimeOptions } from './config'
 
 describe('clampOpacity', () => {
   it('keeps values between 0.3 and 1', () => {
@@ -37,5 +37,13 @@ describe('ConfigStore', () => {
     expect(second.opacity).toBe(0.3)
     expect(second.liveAudio).toBe(true)
     expect(JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')).id).toBe(id)
+  })
+})
+
+describe('normalizeConfig', () => {
+  it('turns minimized notifications on by default, even for old configs', () => {
+    expect(normalizeConfig({}).notifyMinimized).toBe(true)
+    expect(normalizeConfig({ notifications: false } as never).notifyMinimized).toBe(true)
+    expect(normalizeConfig({ notifyMinimized: false }).notifyMinimized).toBe(false)
   })
 })

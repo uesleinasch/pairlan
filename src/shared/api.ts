@@ -5,7 +5,7 @@ export type AppConfig = {
   name: string
   opacity: number
   alwaysOnTop: boolean
-  notifications: boolean
+  notifyMinimized: boolean
   manualPeer: string
   liveAudio: boolean
 }
@@ -57,8 +57,6 @@ export type PairlanApi = {
   sendInput(input: RemoteInput): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
-  minimizeWindow(): void
-  closeWindow(): void
   pickFiles(): Promise<ChatMessage[]>
   sendFilePaths(paths: string[]): Promise<ChatMessage[]>
   sendFileData(name: string, data: ArrayBuffer): Promise<ChatMessage[]>

@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import {
@@ -31,12 +32,16 @@ if (runtime.profile) {
 }
 
 // Wayland has no always-on-top; ozone is picked before this script runs, so appendSwitch is too late.
+// app.relaunch breaks inside an AppImage (the mount goes away), so this process stays alive as a supervisor.
 const needsX11 =
   process.platform === 'linux' && app.isPackaged && app.commandLine.getSwitchValue('ozone-platform') === 'wayland'
 
 if (needsX11) {
-  app.relaunch({ execPath: process.env.APPIMAGE, args: [...process.argv.slice(1), '--ozone-platform=x11'] })
-  app.exit(0)
+  app.disableHardwareAcceleration()
+  const child = spawn(process.execPath, [...process.argv.slice(1), '--ozone-platform=x11'], { stdio: 'inherit' })
+  child.on('exit', (code) => app.exit(code ?? 0))
+  child.on('error', () => app.exit(1))
+  app.on('before-quit', () => child.kill())
 } else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -79,7 +84,6 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
     title: 'Notes',
     icon: resourcePath('icon.png'),
     show: false,
-    frame: false,
     transparent: true,
     backgroundColor: '#00000000',
     alwaysOnTop,
@@ -157,10 +161,15 @@ async function boot(): Promise<void> {
   const notifyIncoming = (msg: ChatMessage) => {
     if (win?.isVisible() && win.isFocused()) return
     tray.addUnread()
-    if (config.get().notifications && Notification.isSupported()) {
-      const body = msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
-      new Notification({ title: msg.fromName, body }).show()
-    }
+    const minimized = !win || !win.isVisible() || win.isMinimized()
+    if (!minimized || !config.get().notifyMinimized || !Notification.isSupported()) return
+    const body = msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
+    const notification = new Notification({ title: msg.fromName, body })
+    notification.on('click', () => {
+      win?.show()
+      win?.focus()
+    })
+    notification.show()
   }
 
   const link = new PeerLink(self(), runtime.linkPort)
@@ -375,8 +384,6 @@ async function boot(): Promise<void> {
   ipcMain.handle('sysaudio:start', () => systemAudio.start())
   ipcMain.on('sysaudio:stop', () => systemAudio.stop())
 
-  ipcMain.on('window:minimize', () => win?.minimize())
-  ipcMain.on('window:close', () => void askClose())
 
   ipcMain.handle('peer:connect', (_e, input: unknown) => {
     const target = typeof input === 'string' ? parseAddress(input, runtime.linkPort) : null

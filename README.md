@@ -20,7 +20,7 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
   - Quem vê clica no 🖱 da tela do par para usar mouse, clique, rolagem e teclado.
   - Bloqueia de novo pelo mesmo chip, pelo ícone do GNOME, ou parando o compartilhamento. Cair a conexão também bloqueia.
   - No diálogo do GNOME, escolha o mesmo monitor que está compartilhando.
-- Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo", e notificação do sistema desligada por padrão.
+- Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo". Notificação de mensagem nova só aparece com a janela minimizada ou na bandeja (dá para desligar).
 
 ## Interface
 
@@ -43,7 +43,7 @@ No Linux (GNOME/Wayland) não existe API que tire uma janela da captura de tela.
 
 1. No Teams, compartilhe **só uma janela/aba** ou **só um monitor**.
 2. Deixe o PairLAN no **outro** monitor, ou fora da janela compartilhada.
-3. Deixe a notificação do sistema desligada: o banner do GNOME aparece em captura de tela cheia.
+3. Se for compartilhar a tela inteira, desligue "Notificar quando minimizado": o banner do GNOME aparece na captura.
 
 O app também liga `setContentProtection(true)`. No Linux isso não faz nada, mas no Windows e no macOS esconde a janela da captura.
 

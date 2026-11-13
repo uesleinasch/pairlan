@@ -62,15 +62,6 @@ body,
   font-weight: 500;
 }
 
-.drag {
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.no-drag {
-  -webkit-app-region: no-drag;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
