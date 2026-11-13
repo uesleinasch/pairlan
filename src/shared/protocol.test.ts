@@ -23,6 +23,7 @@ describe('parseWire', () => {
       { t: 'laser', x: 0.25, y: 1, click: false },
       { t: 'laser-off' },
       { t: 'control-state', allowed: true },
+      { t: 'control-request' },
       { t: 'input', input: { kind: 'move', x: 0, y: 0.5 } },
       { t: 'input', input: { kind: 'button', button: 2, down: true } },
       { t: 'input', input: { kind: 'scroll', dx: 0, dy: -3 } },

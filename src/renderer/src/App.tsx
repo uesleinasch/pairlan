@@ -131,6 +131,22 @@ export function App() {
     if (!result.ok && result.error) show(result.error)
   }
 
+  const controlRequest = useRef({ sharing: false, peer: '', allow: () => {} })
+  controlRequest.current = {
+    sharing: share.sharing,
+    peer: status.state === 'connected' ? status.peer.name : 'O par',
+    allow: () => void toggleControl()
+  }
+  useEffect(
+    () =>
+      api.onControlRequested(() => {
+        const { sharing, peer, allow } = controlRequest.current
+        if (sharing) show(`${peer} pediu para controlar seu mouse e teclado.`, { label: 'Permitir', run: allow }, 'info')
+        else show(`${peer} pediu para controlar seu mouse e teclado. Compartilhe a tela antes.`, undefined, 'info')
+      }),
+    [show]
+  )
+
   const send = useCallback(async (text: string) => {
     const msg = await api.sendChat(text)
     if (msg) setMessages((prev) => [...prev, msg])
@@ -140,6 +156,10 @@ export function App() {
   if (!self || !config) return null
 
   const peerName = connected ? status.peer.name : ''
+  const requestControl = () => {
+    api.requestControl()
+    show(`Pedido enviado: ${peerName} precisa liberar o controle.`, undefined, 'info')
+  }
   const showScreen = connected && (share.remoteSharing || share.remoteStream !== null)
   const outgoing = [share.sharing && 'tela', systemAudio.sharing && 'áudio do PC'].filter((v): v is string => Boolean(v))
 
@@ -164,6 +184,7 @@ export function App() {
         notice={snackbar.item}
         onDismissNotice={snackbar.dismiss}
         onToggleControl={() => void toggleControl()}
+        onRequestControl={requestControl}
         onSend={send}
         onAttached={appendMessages}
       />
@@ -194,7 +215,7 @@ export function App() {
         onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
       />
       <div className={showScreen ? 'body split' : 'body'}>
-        {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} canControl={peerControl} />}
+        {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} canControl={peerControl} onRequestControl={requestControl} />}
         <div className="side">
           {connected && systemAudio.incoming && (
             <SystemAudioBar

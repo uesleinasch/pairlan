@@ -39,6 +39,7 @@ type Props = {
   notice: SnackbarItem | null
   onDismissNotice: () => void
   onToggleControl: () => void
+  onRequestControl: () => void
   onSend: (text: string) => Promise<boolean>
   onAttached: (msgs: ChatMessage[]) => void
 }
@@ -84,7 +85,7 @@ export function TerminalView(p: Props) {
   const { notice, onDismissNotice } = p
   useEffect(() => {
     if (!notice) return
-    setLocal((prev) => [...prev, { id: ++seq.current, ts: Date.now(), kind: 'err', text: `pairlan: ${notice.text}`, action: notice.action }])
+    setLocal((prev) => [...prev, { id: ++seq.current, ts: Date.now(), kind: notice.tone === 'info' ? 'out' : 'err', text: `pairlan: ${notice.text}`, action: notice.action }])
     onDismissNotice()
   }, [notice, onDismissNotice])
 
@@ -261,7 +262,7 @@ export function TerminalView(p: Props) {
   return (
     <main className="term-app">
       <div className={showScreen ? 'term-body split' : 'term-body'}>
-        {showScreen && <ScreenView variant="terminal" stream={p.share.remoteStream} peerName={peerName} canControl={p.peerControl} />}
+        {showScreen && <ScreenView variant="terminal" stream={p.share.remoteStream} peerName={peerName} canControl={p.peerControl} onRequestControl={p.onRequestControl} />}
         <section
           className="term-chat"
           aria-label="Chat"
