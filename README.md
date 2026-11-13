@@ -4,6 +4,7 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
 
 - O par é achado sozinho na rede (broadcast UDP). Se isso falhar, dá para digitar o IP.
 - O chat aceita blocos de código com ` ``` `, mostra quando o outro está digitando e guarda o histórico.
+- Anexos: botão 📎, arrastar ou colar (inclusive print da área de transferência). Até 500 MB por arquivo. O que chega vai para `~/Downloads/PairLAN`.
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo", e notificação do sistema desligada por padrão.
 
@@ -58,7 +59,9 @@ npm run typecheck
 npm run dist       # gera dist/*.AppImage
 ```
 
-Para rodar duas instâncias na mesma máquina:
+Para testar a dois na mesma máquina, use `npm run pair`. Ele faz o build e abre duas instâncias (perfis `a` e `b`) que se conectam sozinhas. Os anexos recebidos vão para `~/Downloads/PairLAN-a` e `~/Downloads/PairLAN-b`.
+
+Também dá para subir cada uma na mão:
 
 ```bash
 PAIRLAN_PROFILE=a npm run dev
