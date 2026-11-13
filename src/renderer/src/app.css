@@ -158,6 +158,10 @@
   object-fit: contain;
 }
 
+.screen-video video.laser {
+  cursor: crosshair;
+}
+
 .screen-video.actual {
   display: block;
   overflow: auto;
