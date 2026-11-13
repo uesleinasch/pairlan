@@ -9,6 +9,7 @@ type Props = {
   stream: MediaStream | null
   peerName: string
   canControl: boolean
+  variant?: 'm3' | 'terminal'
 }
 
 const pointOf = (e: PointerEvent<HTMLVideoElement>): Point | null => {
@@ -16,11 +17,12 @@ const pointOf = (e: PointerEvent<HTMLVideoElement>): Point | null => {
   return videoPoint(v.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY)
 }
 
-export function ScreenView({ stream, peerName, canControl }: Props) {
+export function ScreenView({ stream, peerName, canControl, variant = 'm3' }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const boxRef = useRef<HTMLElement>(null)
   const [actualSize, setActualSize] = useState(false)
   const [mode, setMode] = useState<Mode>('view')
+  const [size, setSize] = useState('')
   const pending = useRef<Point | null>(null)
   const frame = useRef(0)
   const heldKeys = useRef(new Set<string>())
@@ -118,39 +120,63 @@ export function ScreenView({ stream, peerName, canControl }: Props) {
       ? 'Parar de controlar'
       : `Controlar mouse e teclado de ${peerName}`
 
+  const terminal = variant === 'terminal'
+  const tg = (on: boolean) => (on ? 'term-tg on' : 'term-tg')
+
   return (
-    <section className="card screen" ref={boxRef} aria-label={`Tela de ${peerName}`}>
-      <header className="card-header">
-        <md-icon aria-hidden="true">desktop_windows</md-icon>
-        <span className="type-title-small">Tela de {peerName}</span>
-        <LaserButton
-          onClick={() => toggle('laser')}
-          aria-pressed={activeMode === 'laser'}
-          aria-label={activeMode === 'laser' ? 'Desligar laser' : 'Laser: apontar na tela do par'}
-          title={activeMode === 'laser' ? 'Desligar laser' : 'Laser: apontar na tela do par'}
-        >
-          <md-icon>stylus_laser_pointer</md-icon>
-        </LaserButton>
-        <ControlButton
-          onClick={() => toggle('control')}
-          disabled={!canControl}
-          aria-pressed={activeMode === 'control'}
-          aria-label={controlTitle}
-          title={controlTitle}
-        >
-          <md-icon>mouse</md-icon>
-        </ControlButton>
-        <md-icon-button
-          onClick={() => setActualSize((v) => !v)}
-          aria-label={actualSize ? 'Ajustar à janela' : 'Tamanho real'}
-          title={actualSize ? 'Ajustar à janela' : 'Tamanho real (100%)'}
-        >
-          <md-icon>{actualSize ? 'fit_screen' : 'crop_free'}</md-icon>
-        </md-icon-button>
-        <md-icon-button onClick={fullscreen} aria-label="Tela cheia" title="Tela cheia">
-          <md-icon>fullscreen</md-icon>
-        </md-icon-button>
-      </header>
+    <section className={terminal ? 'term-screen' : 'card screen'} ref={boxRef} aria-label={`Tela de ${peerName}`}>
+      {terminal ? (
+        <header className="term-pane-head">
+          <span className="term-u">tela:{peerName}</span>
+          <span className="term-dim"> │ </span>
+          <button type="button" className={tg(activeMode === 'laser')} aria-pressed={activeMode === 'laser'} title="Laser: apontar na tela do par" onClick={() => toggle('laser')}>
+            laser
+          </button>
+          <button type="button" className={tg(activeMode === 'control')} aria-pressed={activeMode === 'control'} title={controlTitle} disabled={!canControl} onClick={() => toggle('control')}>
+            controle
+          </button>
+          <button type="button" className={tg(actualSize)} aria-pressed={actualSize} title="Tamanho real (100%)" onClick={() => setActualSize((v) => !v)}>
+            1:1
+          </button>
+          <button type="button" className="term-tg" title="Tela cheia" onClick={fullscreen}>
+            cheia
+          </button>
+          <span className="term-fill" />
+          <span className="term-dim">{size}</span>
+        </header>
+      ) : (
+        <header className="card-header">
+          <md-icon aria-hidden="true">desktop_windows</md-icon>
+          <span className="type-title-small">Tela de {peerName}</span>
+          <LaserButton
+            onClick={() => toggle('laser')}
+            aria-pressed={activeMode === 'laser'}
+            aria-label={activeMode === 'laser' ? 'Desligar laser' : 'Laser: apontar na tela do par'}
+            title={activeMode === 'laser' ? 'Desligar laser' : 'Laser: apontar na tela do par'}
+          >
+            <md-icon>stylus_laser_pointer</md-icon>
+          </LaserButton>
+          <ControlButton
+            onClick={() => toggle('control')}
+            disabled={!canControl}
+            aria-pressed={activeMode === 'control'}
+            aria-label={controlTitle}
+            title={controlTitle}
+          >
+            <md-icon>mouse</md-icon>
+          </ControlButton>
+          <md-icon-button
+            onClick={() => setActualSize((v) => !v)}
+            aria-label={actualSize ? 'Ajustar à janela' : 'Tamanho real'}
+            title={actualSize ? 'Ajustar à janela' : 'Tamanho real (100%)'}
+          >
+            <md-icon>{actualSize ? 'fit_screen' : 'crop_free'}</md-icon>
+          </md-icon-button>
+          <md-icon-button onClick={fullscreen} aria-label="Tela cheia" title="Tela cheia">
+            <md-icon>fullscreen</md-icon>
+          </md-icon-button>
+        </header>
+      )}
       <div className={actualSize ? 'screen-video actual' : 'screen-video'}>
         {stream ? (
           <video
@@ -168,6 +194,8 @@ export function ScreenView({ stream, peerName, canControl }: Props) {
             onKeyUp={onKey(false)}
             onBlur={() => activeMode === 'control' && releaseAll()}
             onContextMenu={(e) => activeMode === 'control' && e.preventDefault()}
+            onLoadedMetadata={(e) => setSize(`${e.currentTarget.videoWidth}x${e.currentTarget.videoHeight}`)}
+            onResize={(e) => setSize(`${e.currentTarget.videoWidth}x${e.currentTarget.videoHeight}`)}
           />
         ) : (
           <md-linear-progress indeterminate aria-label="Conectando vídeo" />

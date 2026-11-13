@@ -3,7 +3,8 @@ import type { TransferProgress } from '../../shared/api'
 import type { ChatMessage } from '../../shared/protocol'
 import { AttachmentView } from './AttachmentView'
 import { EmptyState } from './EmptyState'
-import { formatBytes, pastedFileName } from './format'
+import { pastedFiles, sendFiles } from './files'
+import { formatBytes } from './format'
 import { MessageText } from './MessageText'
 import type { WalkieState } from './useWalkie'
 import { WalkieButton, walkieStatusText } from './WalkieButton'
@@ -56,15 +57,9 @@ export function Conversation(p: Props) {
     if (await p.onSend(draft)) setDraft('')
   }
 
-  const sendFiles = async (files: File[]) => {
+  const send = async (files: File[]) => {
     if (!p.connected || files.length === 0) return
-    const paths: string[] = []
-    for (const file of files) {
-      const path = api.pathForFile(file)
-      if (path) paths.push(path)
-      else p.onAttached(await api.sendFileData(file.name || pastedFileName(file.type), await file.arrayBuffer()))
-    }
-    if (paths.length) p.onAttached(await api.sendFilePaths(paths))
+    p.onAttached(await sendFiles(files))
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -81,16 +76,16 @@ export function Conversation(p: Props) {
   }
 
   const onPaste = (e: ClipboardEvent) => {
-    const files = [...e.clipboardData.files]
+    const files = pastedFiles(e)
     if (files.length === 0) return
     e.preventDefault()
-    void sendFiles(files.map((f) => (f.name ? f : new File([f], pastedFileName(f.type), { type: f.type }))))
+    void send(files)
   }
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault()
     setDragging(false)
-    void sendFiles([...e.dataTransfer.files])
+    void send([...e.dataTransfer.files])
   }
 
   const status = walkieStatusText(p.walkie.state, p.walkie.peerLive) || (p.peerTyping ? `${p.peerName} está digitando…` : '')

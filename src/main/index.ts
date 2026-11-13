@@ -16,7 +16,7 @@ import {
 import type { AppConfig } from '../shared/api'
 import { parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
-import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
+import { ConfigStore, DISCOVERY_PORT, runtimeOptions, shellPrompt, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { LaserOverlay } from './laser-overlay'
@@ -75,14 +75,14 @@ function send(channel: string, payload?: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-function createWindow(alwaysOnTop: boolean): BrowserWindow {
+function createWindow(alwaysOnTop: boolean, look: WindowLook): BrowserWindow {
   const w = new BrowserWindow({
     width: 420,
     height: 640,
     minWidth: 320,
     minHeight: 400,
-    title: 'Notes',
-    icon: resourcePath('icon.png'),
+    title: look.title,
+    icon: resourcePath(look.icon),
     show: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -95,6 +95,7 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
   })
   w.setContentProtection(true)
   w.webContents.on('will-navigate', (e) => e.preventDefault())
+  w.on('page-title-updated', (e) => e.preventDefault())
   w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   w.once('ready-to-show', () => {
     w.show()
@@ -119,6 +120,13 @@ async function boot(): Promise<void> {
   const config = new ConfigStore(userData)
   const history = new History(join(userData, 'history.jsonl'))
   const self = (): PeerInfo => ({ id: config.get().id, name: config.get().name })
+  const prompt = shellPrompt()
+  const applyLook = (terminalMode: boolean) => {
+    const look = windowLook(terminalMode, prompt)
+    win?.setTitle(look.title)
+    win?.setIcon(resourcePath(look.icon))
+    tray.setTerminal(terminalMode)
+  }
 
   const toggleWindow = () => {
     if (!win) return
@@ -132,6 +140,7 @@ async function boot(): Promise<void> {
     const next = config.update(patch)
     link.updateSelf(self())
     win?.setAlwaysOnTop(next.alwaysOnTop)
+    applyLook(next.terminalMode)
     link.send({ t: 'presence', liveAudio: next.liveAudio })
     tray.rebuild()
     send('config', next)
@@ -153,18 +162,29 @@ async function boot(): Promise<void> {
       type: 'checkbox',
       checked: config.get().alwaysOnTop,
       click: (item) => applyConfig({ alwaysOnTop: item.checked })
+    },
+    {
+      label: 'Modo terminal',
+      type: 'checkbox',
+      checked: config.get().terminalMode,
+      click: (item) => applyConfig({ terminalMode: item.checked })
     }
   ]
 
   const tray = new AppTray({ toggleWindow, quit: () => app.quit(), extraItems: trayItems })
+  tray.setTerminal(config.get().terminalMode)
 
   const notifyIncoming = (msg: ChatMessage) => {
     if (win?.isVisible() && win.isFocused()) return
     tray.addUnread()
     const minimized = !win || !win.isVisible() || win.isMinimized()
     if (!minimized || !config.get().notifyMinimized || !Notification.isSupported()) return
-    const body = msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
-    const notification = new Notification({ title: msg.fromName, body })
+    const notification = config.get().terminalMode
+      ? new Notification({ title: 'Terminal', body: 'Comando concluído' })
+      : new Notification({
+          title: msg.fromName,
+          body: msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
+        })
     notification.on('click', () => {
       win?.show()
       win?.focus()
@@ -278,6 +298,7 @@ async function boot(): Promise<void> {
 
   ipcMain.handle('state:get', () => ({
     self: self(),
+    prompt,
     config: config.get(),
     status: link.status(),
     searching: discovery.isRunning(),
@@ -403,6 +424,6 @@ async function boot(): Promise<void> {
   })
   app.on('second-instance', () => win?.show())
 
-  win = createWindow(config.get().alwaysOnTop)
+  win = createWindow(config.get().alwaysOnTop, windowLook(config.get().terminalMode, prompt))
   win.on('focus', () => tray.clearUnread())
 }
