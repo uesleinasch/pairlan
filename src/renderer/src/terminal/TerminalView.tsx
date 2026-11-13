@@ -10,6 +10,7 @@ import type { useSystemAudio } from '../useSystemAudio'
 import type { useWalkie } from '../useWalkie'
 import { walkieStatusText } from '../WalkieButton'
 import { completeCommand, helpText, parseInput, type CommandName } from './commands'
+import { PowerLine } from './PowerLine'
 import { TermConfig } from './TermConfig'
 import { clock, TermMessage } from './TermMessage'
 import './terminal.css'
@@ -21,7 +22,6 @@ const SPINNER = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 type LocalLine = { id: number; ts: number; kind: 'cmd' | 'out' | 'err'; text: string; action?: SnackbarAction }
 
 type Props = {
-  prompt: string
   self: PeerInfo
   config: AppConfig
   status: LinkStatus
@@ -214,7 +214,7 @@ export function TerminalView(p: Props) {
 
   const promptLine = (text: ReactNode) => (
     <p className="term-line">
-      <span className="term-u">{p.prompt}</span>:<span className="term-p">~/pair</span>$ {text}
+      <span className="term-chev">❯</span> {text}
     </p>
   )
 
@@ -278,6 +278,7 @@ export function TerminalView(p: Props) {
           }}
         >
           <div className="term-log" ref={logRef} role="log" aria-live="polite" aria-label="Mensagens">
+            <PowerLine path={p.config.terminalPath} branch={p.config.terminalBranch} />
             {promptLine('tail -f chat.log')}
             {feed.map((item) =>
               'msg' in item && item.msg ? (
@@ -329,10 +330,9 @@ export function TerminalView(p: Props) {
             </p>
           )}
 
+          <PowerLine path={p.config.terminalPath} branch={p.config.terminalBranch} />
           <label className="term-prompt">
-            <span className="term-line">
-              <span className="term-u">{p.prompt}</span>:<span className="term-p">~/pair</span>${' '}
-            </span>
+            <span className="term-chev">❯ </span>
             <textarea
               ref={inputRef}
               className="term-input"
@@ -355,7 +355,6 @@ export function TerminalView(p: Props) {
           {configOpen && (
             <TermConfig
               config={p.config}
-              title={`${p.prompt}: ~/pair`}
               onClose={() => setConfigOpen(false)}
               onChange={(patch) => void api.setConfig(patch)}
               onConnect={api.connectManual}
