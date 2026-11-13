@@ -1,11 +1,11 @@
-import type { ChatMessage, PeerInfo, SignalPayload } from './protocol'
+import type { ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
 
 export type AppConfig = {
   id: string
   name: string
   opacity: number
   alwaysOnTop: boolean
-  notifications: boolean
+  notifyMinimized: boolean
   manualPeer: string
   liveAudio: boolean
 }
@@ -49,10 +49,14 @@ export type PairlanApi = {
   onConfig(cb: (config: AppConfig) => void): Unsubscribe
   sendSignal(payload: SignalPayload): void
   setSharing(sharing: boolean): void
+  setShareCapture(size: { width: number; height: number } | null): void
+  sendLaser(point: { x: number; y: number; click: boolean } | null): void
+  setControl(allowed: boolean): Promise<{ ok: boolean; error?: string }>
+  onControlState(cb: (allowed: boolean) => void): Unsubscribe
+  onPeerControl(cb: (allowed: boolean) => void): Unsubscribe
+  sendInput(input: RemoteInput): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
-  minimizeWindow(): void
-  closeWindow(): void
   pickFiles(): Promise<ChatMessage[]>
   sendFilePaths(paths: string[]): Promise<ChatMessage[]>
   sendFileData(name: string, data: ArrayBuffer): Promise<ChatMessage[]>

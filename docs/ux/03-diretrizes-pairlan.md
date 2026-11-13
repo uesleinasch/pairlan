@@ -14,7 +14,7 @@ Aplica os princípios de [01-principios-ux.md](01-principios-ux.md) com o sistem
 | Problema | Heurística/lei violada | Correção |
 |---|---|---|
 | Ícones em emoji (⚙ 🎧 🔊 ✕) sem rótulo e com estilo inconsistente | 4 Consistência, 6 Reconhecer | Material Symbols + tooltip + `aria-label` |
-| 7 ações na barra superior de 420 px | Hick, 8 Minimalismo | Barra só com Configurações / Minimizar / Esconder. Mídia num grupo próprio |
+| 7 ações na barra superior de 420 px | Hick, 8 Minimalismo | Barra só com busca e Configurações; minimizar e fechar ficam na barra de título do GNOME. Mídia num grupo próprio |
 | Toggles de mídia (tela, áudio do PC, ouvir ao vivo) parecem botões soltos e o estado "ligado" não é óbvio | 1 Status, Similaridade | `md-filter-chip` com estado selecionado e ícone que muda |
 | Status só com bolinha colorida | WCAG 1.4.1 | Ícone + texto ("Conectado a Ana", "Procurando…") |
 | Erros como texto cinza que não some e não sugere solução | 9 Erros | Snackbar com mensagem clara e ação ("Configurar IP", "Tentar de novo") |

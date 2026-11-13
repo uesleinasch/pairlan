@@ -8,8 +8,6 @@ type Props = {
   onOpenSettings: () => void
 }
 
-const api = window.pairlan
-
 const STATUS_ICON: Record<LinkStatus['state'], string> = {
   idle: 'wifi_find',
   connecting: 'sync',
@@ -29,7 +27,7 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
   const subtitle = outgoing.length ? `${base} · transmitindo ${outgoing.join(', ')}` : base
 
   return (
-    <header className="top-app-bar drag">
+    <header className="top-app-bar">
       <span className={`status-avatar ${status.state}`} aria-hidden="true">
         <md-icon>{status.state === 'idle' && !searching ? 'search_off' : STATUS_ICON[status.state]}</md-icon>
       </span>
@@ -39,7 +37,7 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
           {subtitle}
         </p>
       </div>
-      <div className="no-drag top-app-bar-actions">
+      <div className="top-app-bar-actions">
         {status.state !== 'connected' && (
           <md-icon-button
             onClick={onToggleSearch}
@@ -51,12 +49,6 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
         )}
         <md-icon-button onClick={onOpenSettings} aria-label="Configurações" title="Configurações">
           <md-icon>settings</md-icon>
-        </md-icon-button>
-        <md-icon-button onClick={api.minimizeWindow} aria-label="Minimizar" title="Minimizar">
-          <md-icon>minimize</md-icon>
-        </md-icon-button>
-        <md-icon-button onClick={api.closeWindow} aria-label="Fechar" title="Fechar">
-          <md-icon>close</md-icon>
         </md-icon-button>
       </div>
     </header>

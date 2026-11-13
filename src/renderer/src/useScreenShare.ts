@@ -47,6 +47,8 @@ export function useScreenShare(connected: boolean) {
     const track = stream.getVideoTracks()[0]
     track.contentHint = 'detail'
     track.addEventListener('ended', () => stopSharing())
+    const { width, height } = track.getSettings()
+    api.setShareCapture(width && height ? { width, height } : null)
     const session = new RtcSession('sharer', api.sendSignal)
     session.pc.addTrack(track, stream)
     sharer.current = { session, stream }
