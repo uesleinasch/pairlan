@@ -7,11 +7,12 @@
   "license": "MIT",
   "homepage": "https://github.com/uesleinasch/pairlan",
   "scripts": {
-    "dev": "npm run icons && electron-vite dev",
+    "dev": "npm run icons && electron-vite dev --noSandbox",
     "build": "npm run icons && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "dist": "npm run build && electron-builder --linux AppImage"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
@@ -20,6 +21,7 @@
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
     "sharp": "^0.35.5",
     "typescript": "^7.0.2",

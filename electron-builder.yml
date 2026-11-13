@@ -1,0 +1,23 @@
+appId: br.com.uesleinac.pairlan
+productName: PairLAN
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: resources
+    to: resources
+linux:
+  target: AppImage
+  icon: build/icons
+  category: Development
+  executableName: pairlan
+  synopsis: Chat e compartilhamento de tela em rede local
+artifactName: ${productName}-${version}-${arch}.${ext}
+publish:
+  provider: github
+  owner: uesleinasch
+  repo: pairlan
+  releaseType: release
