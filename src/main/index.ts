@@ -17,6 +17,7 @@ import { AttachmentService } from './attachments'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
+import { LaserOverlay } from './laser-overlay'
 import { parseAddress, PeerLink } from './peer-link'
 import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
@@ -171,9 +172,16 @@ async function boot(): Promise<void> {
     onProgress: (p) => send('file:progress', p)
   })
 
+  const laser = new LaserOverlay()
+  let sharingScreen = false
+
   link.on('status', (status) => {
     if (status.state === 'connected') link.send({ t: 'presence', liveAudio: config.get().liveAudio })
-    else attachments.abortIncoming()
+    else {
+      attachments.abortIncoming()
+      sharingScreen = false
+      laser.close()
+    }
     send('link:status', status)
   })
   link.on('message', (m) => {
@@ -195,6 +203,12 @@ async function boot(): Promise<void> {
         break
       case 'presence':
         send('peer:live-audio', m.liveAudio)
+        break
+      case 'laser':
+        if (sharingScreen) laser.point(m.x, m.y, m.click)
+        break
+      case 'laser-off':
+        laser.hide()
         break
     }
   })
@@ -250,7 +264,21 @@ async function boot(): Promise<void> {
   })
 
   ipcMain.on('share:state', (_e, sharing: unknown) => {
-    if (typeof sharing === 'boolean') link.send({ t: 'share-state', sharing })
+    if (typeof sharing !== 'boolean') return
+    sharingScreen = sharing
+    if (!sharing) laser.close()
+    link.send({ t: 'share-state', sharing })
+  })
+
+  ipcMain.on('share:capture', (_e, size: unknown) => {
+    const ok = (v: unknown) => Number.isInteger(v) && (v as number) > 0
+    const s = size as { width?: unknown; height?: unknown } | null
+    laser.setCapture(s && ok(s.width) && ok(s.height) ? { width: s.width as number, height: s.height as number } : null)
+  })
+
+  ipcMain.on('laser:send', (_e, point: unknown) => {
+    const m = parseWire(JSON.stringify(point ? { ...(point as object), t: 'laser' } : { t: 'laser-off' }))
+    if (m) link.send(m)
   })
 
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
@@ -307,6 +335,7 @@ async function boot(): Promise<void> {
 
   app.on('before-quit', () => {
     quitting = true
+    laser.close()
     systemAudio.stop()
     discovery.stop()
     void link.stop()

@@ -49,6 +49,8 @@ export type PairlanApi = {
   onConfig(cb: (config: AppConfig) => void): Unsubscribe
   sendSignal(payload: SignalPayload): void
   setSharing(sharing: boolean): void
+  setShareCapture(size: { width: number; height: number } | null): void
+  sendLaser(point: { x: number; y: number; click: boolean } | null): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
   minimizeWindow(): void
