@@ -1,4 +1,11 @@
-export function EmptyState({ connected, onConnectByIp }: { connected: boolean; onConnectByIp: () => void }) {
+type Props = {
+  connected: boolean
+  searching: boolean
+  onConnectByIp: () => void
+  onSearchAgain: () => void
+}
+
+export function EmptyState({ connected, searching, onConnectByIp, onSearchAgain }: Props) {
   if (connected) {
     return (
       <div className="empty-state">
@@ -7,6 +14,20 @@ export function EmptyState({ connected, onConnectByIp }: { connected: boolean; o
         <p className="type-body-medium">
           Escreva, cole um print ou segure o microfone (Ctrl+Espaço) para falar.
         </p>
+      </div>
+    )
+  }
+  if (!searching) {
+    return (
+      <div className="empty-state">
+        <md-icon aria-hidden="true">search_off</md-icon>
+        <p className="type-title-small">Busca pausada</p>
+        <p className="type-body-medium">O PairLAN não está anunciando nem procurando o par na rede.</p>
+        <md-filled-tonal-button onClick={onSearchAgain}>
+          <md-icon slot="icon">wifi_find</md-icon>
+          Procurar de novo
+        </md-filled-tonal-button>
+        <md-text-button onClick={onConnectByIp}>Conectar por IP</md-text-button>
       </div>
     )
   }

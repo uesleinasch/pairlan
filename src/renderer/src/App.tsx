@@ -21,6 +21,7 @@ export function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [peerTyping, setPeerTyping] = useState(false)
   const [transfers, setTransfers] = useState<TransferProgress[]>([])
+  const [searching, setSearching] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const typingTimer = useRef<number | undefined>(undefined)
   const snackbar = useSnackbar()
@@ -38,10 +39,12 @@ export function App() {
       setSelf(s.self)
       setConfig(s.config)
       setStatus(s.status)
+      setSearching(s.searching)
       setMessages(s.history)
     })
     const offs = [
       api.onStatus(setStatus),
+      api.onSearching(setSearching),
       api.onChat((m) => {
         setPeerTyping(false)
         setMessages((prev) => [...prev, m])
@@ -127,8 +130,14 @@ export function App() {
 
   return (
     <main className="app">
-      <TopAppBar status={status} outgoing={outgoing} onOpenSettings={() => setSettingsOpen(true)} />
-      {!connected && <md-linear-progress indeterminate className="searching" aria-label="Procurando o par" />}
+      <TopAppBar
+        status={status}
+        searching={searching}
+        outgoing={outgoing}
+        onToggleSearch={() => api.setSearching(!searching)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      {!connected && (searching || status.state === 'connecting') && <md-linear-progress indeterminate className="searching" aria-label="Procurando o par" />}
       <MediaControls
         connected={connected}
         sharingScreen={share.sharing}
@@ -158,12 +167,14 @@ export function App() {
             messages={messages}
             transfers={transfers}
             connected={connected}
+            searching={searching}
             peerTyping={peerTyping}
             walkie={walkie}
             onSend={send}
             onAttached={appendMessages}
             onTyping={api.sendTyping}
             onConnectByIp={() => setSettingsOpen(true)}
+            onSearchAgain={() => api.setSearching(true)}
           />
         </div>
       </div>

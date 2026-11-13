@@ -22,12 +22,14 @@ type Props = {
   messages: ChatMessage[]
   transfers: TransferProgress[]
   connected: boolean
+  searching: boolean
   peerTyping: boolean
   walkie: Walkie
   onSend: (text: string) => Promise<boolean>
   onAttached: (msgs: ChatMessage[]) => void
   onTyping: () => void
   onConnectByIp: () => void
+  onSearchAgain: () => void
 }
 
 const api = window.pairlan
@@ -114,7 +116,12 @@ export function Conversation(p: Props) {
 
       <div className="messages" ref={listRef} role="log" aria-live="polite" aria-label="Mensagens">
         {p.messages.length === 0 ? (
-          <EmptyState connected={p.connected} onConnectByIp={p.onConnectByIp} />
+          <EmptyState
+            connected={p.connected}
+            searching={p.searching}
+            onConnectByIp={p.onConnectByIp}
+            onSearchAgain={p.onSearchAgain}
+          />
         ) : (
           p.messages.map((m) => (
             <article key={m.id} className={m.from === p.selfId ? 'bubble mine' : 'bubble'}>
