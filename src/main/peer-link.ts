@@ -198,3 +198,14 @@ export class PeerLink extends EventEmitter<Events> {
     this.emit('status', this.status())
   }
 }
+
+export function parseAddress(input: string, defaultPort: number): { address: string; port: number } | null {
+  const value = input.trim()
+  const bracketed = /^\[([^\]]+)\](?::(\d+))?$/.exec(value)
+  const plain = /^([^:]+)(?::(\d+))?$/.exec(value)
+  const match = bracketed ?? plain
+  const address = match ? match[1] : value
+  const port = match?.[2] ? Number(match[2]) : defaultPort
+  if (!isIP(address) || !isPrivateAddress(address) || port < 1 || port > 65535) return null
+  return { address, port }
+}

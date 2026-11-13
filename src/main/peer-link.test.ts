@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LinkStatus } from '../shared/api'
 import type { WireMessage } from '../shared/protocol'
-import { isPrivateAddress, PeerLink } from './peer-link'
+import { isPrivateAddress, parseAddress, PeerLink } from './peer-link'
 
 describe('isPrivateAddress', () => {
   it('accepts LAN and loopback', () => {
@@ -73,5 +73,19 @@ describe('PeerLink', () => {
     await new Promise((r) => setTimeout(r, 500))
     expect(a.status()).toMatchObject({ state: 'connected', peer: { id: 'b' } })
     expect(c.isConnected()).toBe(false)
+  })
+})
+
+describe('parseAddress', () => {
+  it('parses ip with optional port', () => {
+    expect(parseAddress(' 192.168.0.5 ', 47801)).toEqual({ address: '192.168.0.5', port: 47801 })
+    expect(parseAddress('10.0.0.2:5000', 47801)).toEqual({ address: '10.0.0.2', port: 5000 })
+    expect(parseAddress('[fe80::1]:6000', 47801)).toEqual({ address: 'fe80::1', port: 6000 })
+  })
+
+  it('rejects hostnames, public ips and bad ports', () => {
+    expect(parseAddress('pc-do-junior', 47801)).toBeNull()
+    expect(parseAddress('8.8.8.8', 47801)).toBeNull()
+    expect(parseAddress('192.168.0.5:99999', 47801)).toBeNull()
   })
 })
