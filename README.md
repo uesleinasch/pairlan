@@ -21,7 +21,7 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
   - Bloqueia de novo pelo mesmo chip, pelo ícone do GNOME, ou parando o compartilhamento. Cair a conexão também bloqueia.
   - No diálogo do GNOME, escolha o mesmo monitor que está compartilhando.
 - Modo terminal: o app fica com cara de terminal do Ubuntu, para pedir ajuda sem chamar atenção.
-  - Título `usuario@maquina: ~/pair`, ícone de terminal, fundo escuro, chat em forma de log, sem bolhas nem botões.
+  - Título com uma pasta falsa (`~/Code/api`), prompt estilo powerline com pasta e branch falsos, ícone de terminal, fundo escuro, chat em forma de log, sem bolhas nem botões. Pasta e branch mudam no `/config`.
   - As ações viram comandos (`/tela`, `/audio`, `/anexo`, `/controle`, `/config`…) e itens na barra verde de baixo. `/help` lista tudo, Tab completa.
   - A notificação de mensagem nova vira "Terminal — Comando concluído".
   - Liga em Configurações, no menu da bandeja ou com `/tema` (que também desliga).
