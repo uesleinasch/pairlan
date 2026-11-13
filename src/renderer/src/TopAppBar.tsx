@@ -55,7 +55,7 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
         <md-icon-button onClick={api.minimizeWindow} aria-label="Minimizar" title="Minimizar">
           <md-icon>minimize</md-icon>
         </md-icon-button>
-        <md-icon-button onClick={api.hideWindow} aria-label="Esconder na bandeja" title="Esconder na bandeja">
+        <md-icon-button onClick={api.closeWindow} aria-label="Fechar" title="Fechar">
           <md-icon>close</md-icon>
         </md-icon-button>
       </div>
