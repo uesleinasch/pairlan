@@ -1,4 +1,5 @@
 import type { IceCandidate, MediaChannel, ShareRole, SignalPayload } from '../../shared/protocol'
+import { stereoOpus } from './sdp'
 
 const MAX_BITRATE = 8_000_000
 
@@ -28,14 +29,20 @@ export class RtcSession {
 
   async offer(): Promise<void> {
     const offer = await this.pc.createOffer()
-    await this.pc.setLocalDescription(offer)
-    this.send({ role: this.role, channel: this.channel, kind: 'offer', sdp: offer.sdp ?? '' })
+    const sdp = this.tune(offer.sdp ?? '')
+    await this.pc.setLocalDescription({ type: 'offer', sdp })
+    this.send({ role: this.role, channel: this.channel, kind: 'offer', sdp })
   }
 
   async answer(): Promise<void> {
     const answer = await this.pc.createAnswer()
-    await this.pc.setLocalDescription(answer)
-    this.send({ role: this.role, channel: this.channel, kind: 'answer', sdp: answer.sdp ?? '' })
+    const sdp = this.tune(answer.sdp ?? '')
+    await this.pc.setLocalDescription({ type: 'answer', sdp })
+    this.send({ role: this.role, channel: this.channel, kind: 'answer', sdp })
+  }
+
+  private tune(sdp: string): string {
+    return this.channel === 'audio' ? stereoOpus(sdp) : sdp
   }
 
   async tuneSenders(): Promise<void> {
