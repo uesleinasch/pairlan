@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests",
     "icons": "node scripts/icons.mjs",
-    "dist": "npm run build && electron-builder --linux AppImage"
+    "dist": "npm run build && electron-builder --linux AppImage",
+    "pair": "npm run build && node scripts/pair.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

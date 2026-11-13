@@ -10,7 +10,13 @@ describe('parseWire', () => {
       { t: 'signal', payload: { role: 'viewer', kind: 'ice', candidate: { candidate: 'c', sdpMid: '0' } } },
       { t: 'signal', payload: { role: 'sharer', kind: 'stop' } },
       { t: 'share-state', sharing: true },
-      { t: 'typing' }
+      { t: 'typing' },
+      {
+        t: 'file-start',
+        msg: { id: 'f', from: 'a', fromName: 'Ana', text: '', ts: 2, attachment: { name: 'a.png', size: 3, mime: 'image/png' } }
+      },
+      { t: 'file-chunk', id: 'f', data: 'AAAA' },
+      { t: 'file-end', id: 'f' }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
@@ -24,5 +30,12 @@ describe('parseWire', () => {
     expect(parseWire('{"t":"signal","payload":{"role":"boss","kind":"stop"}}')).toBeNull()
     expect(parseWire('{"t":"signal","payload":{"role":"sharer","kind":"offer"}}')).toBeNull()
     expect(parseWire('{"t":"share-state","sharing":"yes"}')).toBeNull()
+    expect(parseWire('{"t":"file-start","msg":{"id":"f","from":"a","fromName":"A","text":"","ts":1}}')).toBeNull()
+    expect(
+      parseWire(
+        '{"t":"file-start","msg":{"id":"f","from":"a","fromName":"A","text":"","ts":1,"attachment":{"name":"x","size":-1,"mime":""}}}'
+      )
+    ).toBeNull()
+    expect(parseWire('{"t":"file-chunk","id":"f"}')).toBeNull()
   })
 })
