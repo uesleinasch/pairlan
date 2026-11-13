@@ -1,24 +1,25 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { isChatMessage, type ChatMessage } from '../shared/protocol'
+import { isChatMessage } from '../shared/protocol'
+import type { StoredMessage } from './transfer'
 
 export class History {
   constructor(private readonly file: string) {
     mkdirSync(dirname(file), { recursive: true })
   }
 
-  append(msg: ChatMessage): void {
+  append(msg: StoredMessage): void {
     appendFileSync(this.file, JSON.stringify(msg) + '\n')
   }
 
-  load(limit = 500): ChatMessage[] {
+  load(limit = 500): StoredMessage[] {
     let raw: string
     try {
       raw = readFileSync(this.file, 'utf8')
     } catch {
       return []
     }
-    const out: ChatMessage[] = []
+    const out: StoredMessage[] = []
     for (const line of raw.split('\n')) {
       if (!line) continue
       try {

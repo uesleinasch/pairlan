@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { PairlanApi } from '../shared/api'
 
 function listen<T>(channel: string, cb: (payload: T) => void) {
@@ -24,7 +24,15 @@ const api: PairlanApi = {
   onSignal: (cb) => listen('rtc:signal', cb),
   onRemoteSharing: (cb) => listen('share:remote', cb),
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
-  hideWindow: () => ipcRenderer.send('window:hide')
+  hideWindow: () => ipcRenderer.send('window:hide'),
+  pickFiles: () => ipcRenderer.invoke('file:pick'),
+  sendFilePaths: (paths) => ipcRenderer.invoke('file:send-paths', paths),
+  sendFileData: (name, data) => ipcRenderer.invoke('file:send-data', name, data),
+  pathForFile: (file) => webUtils.getPathForFile(file),
+  openFile: (id) => ipcRenderer.send('file:open', id),
+  revealFile: (id) => ipcRenderer.send('file:reveal', id),
+  previewFile: (id) => ipcRenderer.invoke('file:preview', id),
+  onTransfer: (cb) => listen('file:progress', cb)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)

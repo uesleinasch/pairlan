@@ -92,6 +92,12 @@ export class PeerLink extends EventEmitter<Events> {
     return true
   }
 
+  sendAsync(m: WireMessage): Promise<boolean> {
+    const ws = this.socket
+    if (ws?.readyState !== WebSocket.OPEN) return Promise.resolve(false)
+    return new Promise((resolve) => ws.send(encodeWire(m), (err) => resolve(!err)))
+  }
+
   async stop(): Promise<void> {
     this.target = null
     this.clearRetry()
