@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import {
@@ -27,12 +28,16 @@ if (runtime.profile) {
 }
 
 // Wayland has no always-on-top; ozone is picked before this script runs, so appendSwitch is too late.
+// app.relaunch breaks inside an AppImage (the mount goes away), so this process stays alive as a supervisor.
 const needsX11 =
   process.platform === 'linux' && app.isPackaged && app.commandLine.getSwitchValue('ozone-platform') === 'wayland'
 
 if (needsX11) {
-  app.relaunch({ execPath: process.env.APPIMAGE, args: [...process.argv.slice(1), '--ozone-platform=x11'] })
-  app.exit(0)
+  app.disableHardwareAcceleration()
+  const child = spawn(process.execPath, [...process.argv.slice(1), '--ozone-platform=x11'], { stdio: 'inherit' })
+  child.on('exit', (code) => app.exit(code ?? 0))
+  child.on('error', () => app.exit(1))
+  app.on('before-quit', () => child.kill())
 } else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
