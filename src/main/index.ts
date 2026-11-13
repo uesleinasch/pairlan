@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { app, BrowserWindow, desktopCapturer, ipcMain, session } from 'electron'
+import { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session } from 'electron'
 import type { AppConfig } from '../shared/api'
 import { parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { parseAddress, PeerLink } from './peer-link'
+import { AppTray, resourcePath } from './tray'
 
 const runtime = runtimeOptions(process.env)
 if (runtime.profile) {
@@ -20,6 +21,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win: BrowserWindow | null = null
+let quitting = false
 
 function send(channel: string, payload?: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
@@ -32,6 +34,7 @@ function createWindow(): BrowserWindow {
     minWidth: 320,
     minHeight: 400,
     title: 'Notes',
+    icon: resourcePath('icon.png'),
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -39,7 +42,13 @@ function createWindow(): BrowserWindow {
       contextIsolation: true
     }
   })
+  w.setContentProtection(true)
   w.once('ready-to-show', () => w.show())
+  w.on('close', (e) => {
+    if (quitting) return
+    e.preventDefault()
+    w.hide()
+  })
   if (process.env.ELECTRON_RENDERER_URL) {
     w.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -54,6 +63,24 @@ async function boot(): Promise<void> {
   const history = new History(join(userData, 'history.jsonl'))
   const self = (): PeerInfo => ({ id: config.get().id, name: config.get().name })
 
+  const toggleWindow = () => {
+    if (!win) return
+    if (win.isVisible() && win.isFocused()) win.hide()
+    else {
+      win.show()
+      win.focus()
+    }
+  }
+  const tray = new AppTray({ toggleWindow, quit: () => app.quit() })
+
+  const notifyIncoming = (msg: ChatMessage) => {
+    if (win?.isVisible() && win.isFocused()) return
+    tray.addUnread()
+    if (config.get().notifications && Notification.isSupported()) {
+      new Notification({ title: msg.fromName, body: msg.text.slice(0, 140) }).show()
+    }
+  }
+
   const link = new PeerLink(self(), runtime.linkPort)
   link.on('status', (status) => send('link:status', status))
   link.on('message', (m) => {
@@ -61,6 +88,7 @@ async function boot(): Promise<void> {
       case 'chat':
         history.append(m.msg)
         send('chat:message', m.msg)
+        notifyIncoming(m.msg)
         break
       case 'typing':
         send('chat:typing')
@@ -136,11 +164,12 @@ async function boot(): Promise<void> {
   })
 
   app.on('before-quit', () => {
+    quitting = true
     discovery.stop()
     void link.stop()
   })
   app.on('second-instance', () => win?.show())
-  app.on('window-all-closed', () => app.quit())
 
   win = createWindow()
+  win.on('focus', () => tray.clearUnread())
 }

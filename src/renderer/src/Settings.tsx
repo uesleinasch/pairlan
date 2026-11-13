@@ -30,6 +30,18 @@ export function Settings({ config, onChange, onConnect }: Props) {
         </div>
         {error && <span className="error">{error}</span>}
       </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={config.notifications}
+          onChange={(e) => onChange({ notifications: e.target.checked })}
+        />
+        Notificação do sistema (aparece se você compartilhar a tela inteira no Teams)
+      </label>
+      <p className="hint">
+        Para o app não aparecer no Teams: compartilhe só uma janela/aba ou só um monitor, e deixe este app no
+        outro.
+      </p>
     </section>
   )
 }
