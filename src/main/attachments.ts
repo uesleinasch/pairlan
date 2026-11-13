@@ -84,7 +84,8 @@ export class AttachmentService {
 
   async preview(id: string): Promise<string | null> {
     const entry = this.paths.get(id)
-    if (!entry || !entry.attachment.mime.startsWith('image/') || entry.attachment.size > MAX_PREVIEW_BYTES) return null
+    const previewable = /^(image|audio)\//.test(entry?.attachment.mime ?? '')
+    if (!entry || !previewable || entry.attachment.size > MAX_PREVIEW_BYTES) return null
     try {
       const data = await readFile(entry.path)
       return `data:${entry.attachment.mime};base64,${data.toString('base64')}`

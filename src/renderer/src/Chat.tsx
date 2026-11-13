@@ -4,6 +4,8 @@ import type { ChatMessage } from '../../shared/protocol'
 import { AttachmentView } from './AttachmentView'
 import { formatBytes, pastedFileName } from './format'
 import { MessageText } from './MessageText'
+import type { WalkieState } from './useWalkie'
+import { WalkieButton, walkieStatusText } from './WalkieButton'
 
 type Props = {
   selfId: string
@@ -14,13 +16,34 @@ type Props = {
   onSend: (text: string) => Promise<boolean>
   onAttached: (msgs: ChatMessage[]) => void
   onTyping: () => void
+  walkie: {
+    state: WalkieState
+    peerLive: boolean
+    incoming: boolean
+    error: string
+    startTalking: () => Promise<void>
+    stopTalking: () => Promise<void>
+  }
+  peerName: string
 }
 
 const api = window.pairlan
 
 const time = (ts: number) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
-export function Chat({ selfId, messages, transfers, connected, peerTyping, onSend, onAttached, onTyping }: Props) {
+export function Chat({
+  selfId,
+  messages,
+  transfers,
+  connected,
+  peerTyping,
+  onSend,
+  onAttached,
+  onTyping,
+  walkie,
+  peerName
+}: Props) {
+  const walkieText = walkie.error || walkieStatusText(walkie.state, walkie.peerLive)
   const [draft, setDraft] = useState('')
   const [dragging, setDragging] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
@@ -103,12 +126,20 @@ export function Chat({ selfId, messages, transfers, connected, peerTyping, onSen
           <progress value={t.done} max={t.total || 1} />
         </div>
       ))}
-      <div className="typing">{peerTyping ? 'digitando…' : ''}</div>
+      {walkie.incoming && <div className="walkie-incoming">🔊 {peerName} falando…</div>}
+      <div className="typing">{walkieText || (peerTyping ? 'digitando…' : '')}</div>
       {dragging && <div className="drop-hint">Solte para enviar</div>}
       <div className="composer">
         <button className="ghost attach" onClick={() => void api.pickFiles().then(onAttached)} disabled={!connected} title="Anexar arquivo">
           📎
         </button>
+        <WalkieButton
+          state={walkie.state}
+          peerLive={walkie.peerLive}
+          disabled={!connected}
+          onStart={() => void walkie.startTalking()}
+          onStop={() => void walkie.stopTalking()}
+        />
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

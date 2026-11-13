@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, pastedFileName } from './format'
+import { formatBytes, pastedFileName, voiceFileName } from './format'
 
 describe('formatBytes', () => {
   it('formats sizes', () => {
@@ -15,5 +15,6 @@ describe('pastedFileName', () => {
     expect(pastedFileName('image/png', d)).toBe('colado-20261113-090507.png')
     expect(pastedFileName('image/jpeg', d)).toBe('colado-20261113-090507.jpg')
     expect(pastedFileName('', d)).toBe('colado-20261113-090507.bin')
+    expect(voiceFileName(d)).toBe('voz-20261113-090507.webm')
   })
 })

@@ -20,7 +20,13 @@ const MIME_BY_EXT: Record<string, string> = {
   '.txt': 'text/plain',
   '.log': 'text/plain',
   '.md': 'text/markdown',
-  '.csv': 'text/csv'
+  '.csv': 'text/csv',
+  '.webm': 'audio/webm',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4'
 }
 
 export const guessMime = (name: string): string =>

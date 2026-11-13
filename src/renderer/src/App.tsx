@@ -6,6 +6,7 @@ import { ScreenView } from './ScreenView'
 import { Settings } from './Settings'
 import { TitleBar } from './TitleBar'
 import { useScreenShare } from './useScreenShare'
+import { useWalkie } from './useWalkie'
 
 const api = window.pairlan
 
@@ -19,6 +20,30 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false)
   const typingTimer = useRef<number | undefined>(undefined)
   const share = useScreenShare(status.state === 'connected')
+  const appendMessages = useCallback((msgs: ChatMessage[]) => setMessages((prev) => [...prev, ...msgs]), [])
+  const walkie = useWalkie(status.state === 'connected', config?.liveAudio ?? true, appendMessages)
+  const { startTalking, stopTalking } = walkie
+
+  useEffect(() => {
+    const isHotkey = (e: KeyboardEvent) => e.ctrlKey && e.code === 'Space'
+    const down = (e: KeyboardEvent) => {
+      if (!isHotkey(e)) return
+      e.preventDefault()
+      if (!e.repeat) void startTalking()
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === 'Control') void stopTalking()
+    }
+    const blur = () => void stopTalking()
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', blur)
+    }
+  }, [startTalking, stopTalking])
 
   useEffect(() => {
     void api.getState().then((s) => {
@@ -80,6 +105,8 @@ export function App() {
     <main className="app">
       <TitleBar
         status={status}
+        liveAudio={config.liveAudio}
+        onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
         sharing={share.sharing}
         onShare={() => void share.startSharing()}
         onStopShare={() => share.stopSharing()}
@@ -97,7 +124,9 @@ export function App() {
         selfId={self.id}
         messages={messages}
         transfers={transfers}
-        onAttached={(msgs) => setMessages((prev) => [...prev, ...msgs])}
+        onAttached={appendMessages}
+        walkie={walkie}
+        peerName={connected ? status.peer.name : ''}
         connected={connected}
         peerTyping={peerTyping}
         onSend={send}

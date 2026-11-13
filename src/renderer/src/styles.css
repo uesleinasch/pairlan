@@ -384,3 +384,30 @@ button.danger {
   height: 6px;
   accent-color: var(--accent);
 }
+
+.composer .walkie {
+  font-size: 18px;
+  align-self: stretch;
+  touch-action: none;
+  user-select: none;
+}
+
+.composer .walkie.active {
+  background: rgb(239 68 68 / 0.25);
+}
+
+.walkie-incoming {
+  margin: 0 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgb(20 184 166 / 0.2);
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.attachment audio {
+  display: block;
+  width: 100%;
+  min-width: 220px;
+  margin: 4px 0;
+}

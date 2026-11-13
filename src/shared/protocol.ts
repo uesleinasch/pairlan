@@ -23,11 +23,19 @@ export type IceCandidate = {
 
 export type ShareRole = 'sharer' | 'viewer'
 
-export type SignalPayload =
-  | { role: ShareRole; kind: 'offer'; sdp: string }
-  | { role: ShareRole; kind: 'answer'; sdp: string }
-  | { role: ShareRole; kind: 'ice'; candidate: IceCandidate }
-  | { role: ShareRole; kind: 'stop' }
+export type MediaChannel = 'screen' | 'voice'
+
+type SignalBase = { role: ShareRole; channel?: MediaChannel }
+
+export type SignalPayload = SignalBase &
+  (
+    | { kind: 'offer'; sdp: string }
+    | { kind: 'answer'; sdp: string }
+    | { kind: 'ice'; candidate: IceCandidate }
+    | { kind: 'stop' }
+  )
+
+export const channelOf = (p: SignalPayload): MediaChannel => p.channel ?? 'screen'
 
 export type WireMessage =
   | { t: 'hello'; v: number; peer: PeerInfo }
@@ -35,6 +43,7 @@ export type WireMessage =
   | { t: 'signal'; payload: SignalPayload }
   | { t: 'share-state'; sharing: boolean }
   | { t: 'typing' }
+  | { t: 'presence'; liveAudio: boolean }
   | { t: 'file-start'; msg: ChatMessage & { attachment: Attachment } }
   | { t: 'file-chunk'; id: string; data: string }
   | { t: 'file-end'; id: string }
@@ -73,6 +82,7 @@ export function isChatMessage(v: unknown): v is ChatMessage {
 
 function isSignal(v: unknown): v is SignalPayload {
   if (!isObject(v) || (v.role !== 'sharer' && v.role !== 'viewer')) return false
+  if (v.channel !== undefined && v.channel !== 'screen' && v.channel !== 'voice') return false
   switch (v.kind) {
     case 'offer':
     case 'answer':
@@ -105,6 +115,8 @@ export function parseWire(raw: string): WireMessage | null {
       return typeof data.sharing === 'boolean' ? (data as WireMessage) : null
     case 'typing':
       return { t: 'typing' }
+    case 'presence':
+      return typeof data.liveAudio === 'boolean' ? { t: 'presence', liveAudio: data.liveAudio } : null
     case 'file-start':
       return isChatMessage(data.msg) && data.msg.attachment ? (data as WireMessage) : null
     case 'file-chunk':

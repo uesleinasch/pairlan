@@ -7,18 +7,22 @@ const api = window.pairlan
 export function AttachmentView({ id, attachment }: { id: string; attachment: Attachment }) {
   const [preview, setPreview] = useState<string | null>(null)
 
+  const isImage = attachment.mime.startsWith('image/')
+  const isAudio = attachment.mime.startsWith('audio/')
+
   useEffect(() => {
-    if (!attachment.mime.startsWith('image/')) return
+    if (!isImage && !isAudio) return
     let alive = true
     void api.previewFile(id).then((url) => alive && setPreview(url))
     return () => {
       alive = false
     }
-  }, [id, attachment.mime])
+  }, [id, isImage, isAudio])
 
   return (
     <div className="attachment">
-      {preview && <img src={preview} alt={attachment.name} onClick={() => api.openFile(id)} />}
+      {preview && isImage && <img src={preview} alt={attachment.name} onClick={() => api.openFile(id)} />}
+      {preview && isAudio && <audio controls src={preview} preload="metadata" />}
       <div className="attachment-info">
         <span className="attachment-name" title={attachment.name}>
           📎 {attachment.name}

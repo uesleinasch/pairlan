@@ -5,6 +5,10 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
 - O par é achado sozinho na rede (broadcast UDP). Se isso falhar, dá para digitar o IP.
 - O chat aceita blocos de código com ` ``` `, mostra quando o outro está digitando e guarda o histórico.
 - Anexos: botão 📎, arrastar ou colar (inclusive print da área de transferência). Até 500 MB por arquivo. O que chega vai para `~/Downloads/PairLAN`.
+- Walkie-talkie: segure 🎙 ou **Ctrl+Espaço** para falar e solte para encerrar. Quando o bipe toca, o canal está no ar.
+  - Se o outro estiver em 🔊, ouve na hora.
+  - Se estiver em 🔇 (ex.: numa call do Teams), sua fala chega como mensagem de voz no chat.
+  - Se o canal ao vivo não conectar, a gravação vai como mensagem do mesmo jeito.
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo", e notificação do sistema desligada por padrão.
 

@@ -33,6 +33,7 @@ describe('file names', () => {
 
   it('guesses common mime types', () => {
     expect(guessMime('Print.PNG')).toBe('image/png')
+    expect(guessMime('voz-1.webm')).toBe('audio/webm')
     expect(guessMime('x.unknown')).toBe('application/octet-stream')
   })
 })

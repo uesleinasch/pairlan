@@ -35,6 +35,7 @@ describe('ConfigStore', () => {
     expect(second.id).toBe(id)
     expect(second.name).toBe('Ana')
     expect(second.opacity).toBe(0.3)
+    expect(second.liveAudio).toBe(true)
     expect(JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')).id).toBe(id)
   })
 })

@@ -32,7 +32,8 @@ const api: PairlanApi = {
   openFile: (id) => ipcRenderer.send('file:open', id),
   revealFile: (id) => ipcRenderer.send('file:reveal', id),
   previewFile: (id) => ipcRenderer.invoke('file:preview', id),
-  onTransfer: (cb) => listen('file:progress', cb)
+  onTransfer: (cb) => listen('file:progress', cb),
+  onPeerLiveAudio: (cb) => listen('peer:live-audio', cb)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)

@@ -7,6 +7,7 @@ export type AppConfig = {
   alwaysOnTop: boolean
   notifications: boolean
   manualPeer: string
+  liveAudio: boolean
 }
 
 export type LinkStatus =
@@ -55,4 +56,5 @@ export type PairlanApi = {
   revealFile(id: string): void
   previewFile(id: string): Promise<string | null>
   onTransfer(cb: (progress: TransferProgress) => void): Unsubscribe
+  onPeerLiveAudio(cb: (liveAudio: boolean) => void): Unsubscribe
 }
