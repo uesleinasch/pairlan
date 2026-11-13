@@ -152,10 +152,15 @@ async function boot(): Promise<void> {
   const notifyIncoming = (msg: ChatMessage) => {
     if (win?.isVisible() && win.isFocused()) return
     tray.addUnread()
-    if (config.get().notifications && Notification.isSupported()) {
-      const body = msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
-      new Notification({ title: msg.fromName, body }).show()
-    }
+    const minimized = !win || !win.isVisible() || win.isMinimized()
+    if (!minimized || !config.get().notifyMinimized || !Notification.isSupported()) return
+    const body = msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
+    const notification = new Notification({ title: msg.fromName, body })
+    notification.on('click', () => {
+      win?.show()
+      win?.focus()
+    })
+    notification.show()
   }
 
   const link = new PeerLink(self(), runtime.linkPort)

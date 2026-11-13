@@ -5,7 +5,7 @@ export type AppConfig = {
   name: string
   opacity: number
   alwaysOnTop: boolean
-  notifications: boolean
+  notifyMinimized: boolean
   manualPeer: string
   liveAudio: boolean
 }
