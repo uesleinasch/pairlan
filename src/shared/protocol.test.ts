@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest'
+import { encodeWire, parseWire, PROTOCOL_VERSION, type WireMessage } from './protocol'
+
+describe('parseWire', () => {
+  it('round-trips valid messages', () => {
+    const messages: WireMessage[] = [
+      { t: 'hello', v: PROTOCOL_VERSION, peer: { id: 'a', name: 'Ana' } },
+      { t: 'chat', msg: { id: '1', from: 'a', fromName: 'Ana', text: 'oi', ts: 1 } },
+      { t: 'signal', payload: { role: 'sharer', kind: 'offer', sdp: 'v=0' } },
+      { t: 'signal', payload: { role: 'viewer', kind: 'ice', candidate: { candidate: 'c', sdpMid: '0' } } },
+      { t: 'signal', payload: { role: 'sharer', kind: 'stop' } },
+      { t: 'share-state', sharing: true },
+      { t: 'typing' }
+    ]
+    for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
+  })
+
+  it('rejects malformed input', () => {
+    expect(parseWire('not json')).toBeNull()
+    expect(parseWire('null')).toBeNull()
+    expect(parseWire('{"t":"nope"}')).toBeNull()
+    expect(parseWire('{"t":"hello","v":1,"peer":{"id":"","name":"x"}}')).toBeNull()
+    expect(parseWire('{"t":"chat","msg":{"id":"1","text":"x"}}')).toBeNull()
+    expect(parseWire('{"t":"signal","payload":{"role":"boss","kind":"stop"}}')).toBeNull()
+    expect(parseWire('{"t":"signal","payload":{"role":"sharer","kind":"offer"}}')).toBeNull()
+    expect(parseWire('{"t":"share-state","sharing":"yes"}')).toBeNull()
+  })
+})
