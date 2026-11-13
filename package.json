@@ -1,6 +1,6 @@
 {
   "name": "pairlan",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Chat e compartilhamento de tela em rede local para pair programming",
   "main": "out/main/index.js",
   "author": "Ueslei Nascimento",
