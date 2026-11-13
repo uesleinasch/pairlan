@@ -29,6 +29,8 @@ const api: PairlanApi = {
   setControl: (allowed) => ipcRenderer.invoke('control:set', allowed),
   onControlState: (cb) => listen('control:state', cb),
   onPeerControl: (cb) => listen('peer:control', cb),
+  requestControl: () => ipcRenderer.send('control:request'),
+  onControlRequested: (cb) => listen('control:requested', () => cb()),
   sendInput: (input) => ipcRenderer.send('input:send', input),
   onSignal: (cb) => listen('rtc:signal', cb),
   onRemoteSharing: (cb) => listen('share:remote', cb),

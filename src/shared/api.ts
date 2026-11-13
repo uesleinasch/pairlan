@@ -57,6 +57,8 @@ export type PairlanApi = {
   setControl(allowed: boolean): Promise<{ ok: boolean; error?: string }>
   onControlState(cb: (allowed: boolean) => void): Unsubscribe
   onPeerControl(cb: (allowed: boolean) => void): Unsubscribe
+  requestControl(): void
+  onControlRequested(cb: () => void): Unsubscribe
   sendInput(input: RemoteInput): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe

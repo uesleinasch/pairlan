@@ -52,6 +52,7 @@ export type WireMessage =
   | { t: 'laser'; x: number; y: number; click: boolean }
   | { t: 'laser-off' }
   | { t: 'control-state'; allowed: boolean }
+  | { t: 'control-request' }
   | { t: 'input'; input: RemoteInput }
 
 export type RemoteInput =
@@ -167,6 +168,8 @@ export function parseWire(raw: string): WireMessage | null {
       return { t: 'laser-off' }
     case 'control-state':
       return typeof data.allowed === 'boolean' ? { t: 'control-state', allowed: data.allowed } : null
+    case 'control-request':
+      return { t: 'control-request' }
     case 'input': {
       const input = parseInput(data.input)
       return input ? { t: 'input', input } : null

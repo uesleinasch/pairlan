@@ -263,6 +263,9 @@ async function boot(): Promise<void> {
       case 'control-state':
         send('peer:control', m.allowed)
         break
+      case 'control-request':
+        if (!controlAllowed) send('control:requested')
+        break
       case 'input':
         if (controlAllowed) remote.apply(m.input)
         break
@@ -349,6 +352,8 @@ async function boot(): Promise<void> {
       return { ok: false, error: err instanceof Error ? err.message : 'Falha ao liberar o controle.' }
     }
   })
+
+  ipcMain.on('control:request', () => link.send({ t: 'control-request' }))
 
   ipcMain.on('input:send', (_e, input: unknown) => {
     const parsed = parseInput(input)
