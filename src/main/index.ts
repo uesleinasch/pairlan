@@ -92,6 +92,7 @@ async function boot(): Promise<void> {
     const next = config.update(patch)
     link.updateSelf(self())
     win?.setAlwaysOnTop(next.alwaysOnTop)
+    link.send({ t: 'presence', liveAudio: next.liveAudio })
     tray.rebuild()
     send('config', next)
     return next
@@ -140,7 +141,8 @@ async function boot(): Promise<void> {
   })
 
   link.on('status', (status) => {
-    if (status.state !== 'connected') attachments.abortIncoming()
+    if (status.state === 'connected') link.send({ t: 'presence', liveAudio: config.get().liveAudio })
+    else attachments.abortIncoming()
     send('link:status', status)
   })
   link.on('message', (m) => {
@@ -159,6 +161,9 @@ async function boot(): Promise<void> {
         break
       case 'share-state':
         send('share:remote', m.sharing)
+        break
+      case 'presence':
+        send('peer:live-audio', m.liveAudio)
         break
     }
   })
