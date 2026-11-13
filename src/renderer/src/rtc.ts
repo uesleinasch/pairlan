@@ -1,4 +1,4 @@
-import type { IceCandidate, ShareRole, SignalPayload } from '../../shared/protocol'
+import type { IceCandidate, MediaChannel, ShareRole, SignalPayload } from '../../shared/protocol'
 
 const MAX_BITRATE = 8_000_000
 
@@ -8,10 +8,11 @@ export class RtcSession {
 
   constructor(
     private readonly role: ShareRole,
-    private readonly send: (payload: SignalPayload) => void
+    private readonly send: (payload: SignalPayload) => void,
+    private readonly channel: MediaChannel = 'screen'
   ) {
     this.pc.onicecandidate = (e) => {
-      if (e.candidate) this.send({ role, kind: 'ice', candidate: e.candidate.toJSON() as IceCandidate })
+      if (e.candidate) this.send({ role, channel, kind: 'ice', candidate: e.candidate.toJSON() as IceCandidate })
     }
   }
 
@@ -28,13 +29,13 @@ export class RtcSession {
   async offer(): Promise<void> {
     const offer = await this.pc.createOffer()
     await this.pc.setLocalDescription(offer)
-    this.send({ role: this.role, kind: 'offer', sdp: offer.sdp ?? '' })
+    this.send({ role: this.role, channel: this.channel, kind: 'offer', sdp: offer.sdp ?? '' })
   }
 
   async answer(): Promise<void> {
     const answer = await this.pc.createAnswer()
     await this.pc.setLocalDescription(answer)
-    this.send({ role: this.role, kind: 'answer', sdp: answer.sdp ?? '' })
+    this.send({ role: this.role, channel: this.channel, kind: 'answer', sdp: answer.sdp ?? '' })
   }
 
   async tuneSenders(): Promise<void> {

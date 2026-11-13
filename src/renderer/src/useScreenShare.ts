@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { SignalPayload } from '../../shared/protocol'
+import { channelOf, type SignalPayload } from '../../shared/protocol'
 import { RtcSession } from './rtc'
 
 const api = window.pairlan
@@ -57,6 +57,7 @@ export function useScreenShare(connected: boolean) {
 
   useEffect(() => {
     const onSignal = async (p: SignalPayload) => {
+      if (channelOf(p) !== 'screen') return
       if (p.role === 'viewer') {
         const session = sharer.current?.session
         if (!session) return
