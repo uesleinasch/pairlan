@@ -18,6 +18,7 @@ import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { parseAddress, PeerLink } from './peer-link'
+import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
 
 const runtime = runtimeOptions(process.env)
@@ -244,6 +245,10 @@ async function boot(): Promise<void> {
 
   ipcMain.handle('file:preview', (_e, id: unknown) => (typeof id === 'string' ? attachments.preview(id) : null))
 
+  const systemAudio = new SystemAudioSource(process.pid)
+  ipcMain.handle('sysaudio:start', () => systemAudio.start())
+  ipcMain.on('sysaudio:stop', () => systemAudio.stop())
+
   ipcMain.on('window:minimize', () => win?.minimize())
   ipcMain.on('window:hide', () => win?.hide())
 
@@ -257,6 +262,7 @@ async function boot(): Promise<void> {
 
   app.on('before-quit', () => {
     quitting = true
+    systemAudio.stop()
     discovery.stop()
     void link.stop()
   })
