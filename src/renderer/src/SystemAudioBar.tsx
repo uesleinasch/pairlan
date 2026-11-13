@@ -9,22 +9,26 @@ type Props = {
 
 export function SystemAudioBar({ peerName, muted, volume, ducked, onToggleMute, onVolume }: Props) {
   return (
-    <div className="sysaudio">
-      <span>
-        🎧 Áudio do PC de {peerName}
-        {ducked && ' (abaixado enquanto você fala)'}
-      </span>
-      <input
-        type="range"
+    <section className="card sysaudio" aria-label={`Áudio do PC de ${peerName}`}>
+      <md-icon aria-hidden="true">headphones</md-icon>
+      <div className="sysaudio-text">
+        <span className="type-title-small">Áudio do PC de {peerName}</span>
+        <span className="type-body-small">{ducked ? 'Abaixado enquanto você fala' : muted ? 'Silenciado' : 'Tocando'}</span>
+      </div>
+      <md-slider
         min={0}
         max={100}
         value={Math.round(volume * 100)}
-        onChange={(e) => onVolume(Number(e.target.value) / 100)}
         aria-label="Volume"
+        oninput={(e: Event) => onVolume(Number((e.target as HTMLInputElement).value) / 100)}
       />
-      <button className="ghost" onClick={onToggleMute} title={muted ? 'Ouvir' : 'Silenciar'}>
-        {muted ? '🔇' : '🔊'}
-      </button>
-    </div>
+      <md-icon-button
+        onClick={onToggleMute}
+        aria-label={muted ? 'Ouvir' : 'Silenciar'}
+        title={muted ? 'Ouvir' : 'Silenciar'}
+      >
+        <md-icon>{muted ? 'volume_off' : 'volume_up'}</md-icon>
+      </md-icon-button>
+    </section>
   )
 }
