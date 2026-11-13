@@ -5,6 +5,9 @@ type Props = {
   sharingScreen: boolean
   sharingAudio: boolean
   audioBusy: boolean
+  controlAllowed: boolean
+  controlBusy: boolean
+  onToggleControl: () => void
   liveAudio: boolean
   onToggleScreen: () => void
   onToggleAudio: () => void
@@ -22,6 +25,20 @@ export function MediaControls(p: Props) {
         title={p.sharingScreen ? 'Parar de compartilhar a tela' : 'Compartilhar minha tela com o par'}
         onToggle={p.onToggleScreen}
       />
+      {p.sharingScreen && (
+        <ToggleChip
+          label={p.controlAllowed ? 'Bloquear controle' : 'Permitir controle'}
+          icon={p.controlAllowed ? 'block' : 'mouse'}
+          selected={p.controlAllowed}
+          disabled={p.controlBusy}
+          title={
+            p.controlAllowed
+              ? 'O par está podendo usar seu mouse e teclado. Clique para bloquear'
+              : 'Deixar o par usar seu mouse e teclado enquanto vê sua tela'
+          }
+          onToggle={p.onToggleControl}
+        />
+      )}
       <ToggleChip
         label={p.sharingAudio ? 'Parar áudio' : 'Áudio do PC'}
         icon={p.sharingAudio ? 'stop_circle' : 'speaker'}

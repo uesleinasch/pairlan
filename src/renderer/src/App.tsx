@@ -22,6 +22,9 @@ export function App() {
   const [peerTyping, setPeerTyping] = useState(false)
   const [transfers, setTransfers] = useState<TransferProgress[]>([])
   const [searching, setSearching] = useState(true)
+  const [controlAllowed, setControlAllowed] = useState(false)
+  const [controlBusy, setControlBusy] = useState(false)
+  const [peerControl, setPeerControl] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const typingTimer = useRef<number | undefined>(undefined)
   const snackbar = useSnackbar()
@@ -45,6 +48,8 @@ export function App() {
     const offs = [
       api.onStatus(setStatus),
       api.onSearching(setSearching),
+      api.onControlState(setControlAllowed),
+      api.onPeerControl(setPeerControl),
       api.onChat((m) => {
         setPeerTyping(false)
         setMessages((prev) => [...prev, m])
@@ -116,6 +121,13 @@ export function App() {
     root.setProperty('--content-alpha', String(0.75 + config.opacity * 0.25))
   }, [config])
 
+  const toggleControl = async () => {
+    setControlBusy(true)
+    const result = await api.setControl(!controlAllowed)
+    setControlBusy(false)
+    if (!result.ok && result.error) show(result.error)
+  }
+
   const send = useCallback(async (text: string) => {
     const msg = await api.sendChat(text)
     if (msg) setMessages((prev) => [...prev, msg])
@@ -143,13 +155,16 @@ export function App() {
         sharingScreen={share.sharing}
         sharingAudio={systemAudio.sharing}
         audioBusy={systemAudio.starting}
+        controlAllowed={controlAllowed}
+        controlBusy={controlBusy}
+        onToggleControl={() => void toggleControl()}
         liveAudio={config.liveAudio}
         onToggleScreen={() => (share.sharing ? share.stopSharing() : void share.startSharing())}
         onToggleAudio={() => (systemAudio.sharing ? systemAudio.stop() : void systemAudio.start())}
         onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
       />
       <div className={showScreen ? 'body split' : 'body'}>
-        {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} />}
+        {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} canControl={peerControl} />}
         <div className="side">
           {connected && systemAudio.incoming && (
             <SystemAudioBar

@@ -14,6 +14,12 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
   - Quem recebe ajusta o volume e pode silenciar. Se estiver em 🔇, já começa mudo.
   - Quando você fala no walkie, esse áudio abaixa sozinho, para não ouvir o eco da própria voz.
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
+- Laser: quem vê a tela do par liga o laser e aponta. Um ponto vermelho aparece na tela de quem compartilha, e um clique faz um anel.
+  - O ponto vai para o monitor que tem o mesmo tamanho da captura. Funciona com monitor inteiro, não com janela.
+- Controle remoto: quem compartilha clica em **Permitir controle**. O GNOME pede permissão e mostra o ícone de compartilhamento na barra do topo.
+  - Quem vê clica no 🖱 da tela do par para usar mouse, clique, rolagem e teclado.
+  - Bloqueia de novo pelo mesmo chip, pelo ícone do GNOME, ou parando o compartilhamento. Cair a conexão também bloqueia.
+  - No diálogo do GNOME, escolha o mesmo monitor que está compartilhando.
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo". Notificação de mensagem nova só aparece com a janela minimizada ou na bandeja (dá para desligar).
 
 ## Interface

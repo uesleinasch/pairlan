@@ -160,6 +160,12 @@
   cursor: crosshair;
 }
 
+.screen-video video.control {
+  cursor: default;
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+
 .screen-video.actual {
   display: block;
   overflow: auto;
