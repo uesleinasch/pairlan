@@ -29,14 +29,16 @@ function defaultName(): string {
   }
 }
 
-export function shellPrompt(user = defaultName(), host = hostname()): string {
-  return `${user}@${host.split('.')[0]}`
-}
+export const DEFAULT_TERMINAL_PATH = '~/Code/api'
+export const DEFAULT_TERMINAL_BRANCH = 'main'
 
 export type WindowLook = { title: string; icon: string }
 
-export const windowLook = (terminalMode: boolean, prompt: string): WindowLook =>
-  terminalMode ? { title: `${prompt}: ~/pair`, icon: 'terminal.png' } : { title: 'Notes', icon: 'icon.png' }
+export const windowLook = (c: Pick<AppConfig, 'terminalMode' | 'terminalPath'>): WindowLook =>
+  c.terminalMode ? { title: c.terminalPath, icon: 'terminal.png' } : { title: 'Notes', icon: 'icon.png' }
+
+const cleanText = (value: unknown, max: number, fallback: string): string =>
+  typeof value === 'string' && value.trim() ? value.trim().replace(/\s+/g, ' ').slice(0, max) : fallback
 
 export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
   return {
@@ -47,7 +49,9 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     notifyMinimized: raw.notifyMinimized !== false,
     manualPeer: typeof raw.manualPeer === 'string' ? raw.manualPeer.trim() : '',
     liveAudio: raw.liveAudio !== false,
-    terminalMode: raw.terminalMode === true
+    terminalMode: raw.terminalMode === true,
+    terminalPath: cleanText(raw.terminalPath, 60, DEFAULT_TERMINAL_PATH),
+    terminalBranch: cleanText(raw.terminalBranch, 40, DEFAULT_TERMINAL_BRANCH)
   }
 }
 

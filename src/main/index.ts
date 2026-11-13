@@ -16,7 +16,7 @@ import {
 import type { AppConfig } from '../shared/api'
 import { parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
-import { ConfigStore, DISCOVERY_PORT, runtimeOptions, shellPrompt, windowLook, type WindowLook } from './config'
+import { ConfigStore, DISCOVERY_PORT, runtimeOptions, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { LaserOverlay } from './laser-overlay'
@@ -120,12 +120,11 @@ async function boot(): Promise<void> {
   const config = new ConfigStore(userData)
   const history = new History(join(userData, 'history.jsonl'))
   const self = (): PeerInfo => ({ id: config.get().id, name: config.get().name })
-  const prompt = shellPrompt()
-  const applyLook = (terminalMode: boolean) => {
-    const look = windowLook(terminalMode, prompt)
+  const applyLook = (c: AppConfig) => {
+    const look = windowLook(c)
     win?.setTitle(look.title)
     win?.setIcon(resourcePath(look.icon))
-    tray.setTerminal(terminalMode)
+    tray.setTerminal(c.terminalMode)
   }
 
   const toggleWindow = () => {
@@ -140,7 +139,7 @@ async function boot(): Promise<void> {
     const next = config.update(patch)
     link.updateSelf(self())
     win?.setAlwaysOnTop(next.alwaysOnTop)
-    applyLook(next.terminalMode)
+    applyLook(next)
     link.send({ t: 'presence', liveAudio: next.liveAudio })
     tray.rebuild()
     send('config', next)
@@ -301,7 +300,6 @@ async function boot(): Promise<void> {
 
   ipcMain.handle('state:get', () => ({
     self: self(),
-    prompt,
     config: config.get(),
     status: link.status(),
     searching: discovery.isRunning(),
@@ -429,6 +427,6 @@ async function boot(): Promise<void> {
   })
   app.on('second-instance', () => win?.show())
 
-  win = createWindow(config.get().alwaysOnTop, windowLook(config.get().terminalMode, prompt))
+  win = createWindow(config.get().alwaysOnTop, windowLook(config.get()))
   win.on('focus', () => tray.clearUnread())
 }

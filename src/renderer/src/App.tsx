@@ -17,7 +17,6 @@ const api = window.pairlan
 
 export function App() {
   const [self, setSelf] = useState<PeerInfo | null>(null)
-  const [prompt, setPrompt] = useState('')
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [status, setStatus] = useState<LinkStatus>({ state: 'idle', peer: null, address: null })
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -42,7 +41,6 @@ export function App() {
   useEffect(() => {
     void api.getState().then((s) => {
       setSelf(s.self)
-      setPrompt(s.prompt)
       setConfig(s.config)
       setStatus(s.status)
       setSearching(s.searching)
@@ -166,7 +164,6 @@ export function App() {
   if (config.terminalMode) {
     return (
       <TerminalView
-        prompt={prompt}
         self={self}
         config={config}
         status={status}

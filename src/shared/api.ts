@@ -9,6 +9,8 @@ export type AppConfig = {
   manualPeer: string
   liveAudio: boolean
   terminalMode: boolean
+  terminalPath: string
+  terminalBranch: string
 }
 
 export type LinkStatus =
@@ -17,7 +19,6 @@ export type LinkStatus =
 
 export type InitialState = {
   self: PeerInfo
-  prompt: string
   config: AppConfig
   status: LinkStatus
   searching: boolean
