@@ -11,6 +11,7 @@ describe('parseWire', () => {
       { t: 'signal', payload: { role: 'sharer', kind: 'stop' } },
       { t: 'signal', payload: { role: 'viewer', channel: 'voice', kind: 'answer', sdp: 'v=0' } },
       { t: 'presence', liveAudio: false },
+      { t: 'signal', payload: { role: 'sharer', channel: 'audio', kind: 'offer', sdp: 'v=0' } },
       { t: 'share-state', sharing: true },
       { t: 'typing' },
       {

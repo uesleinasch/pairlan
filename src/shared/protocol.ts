@@ -23,7 +23,9 @@ export type IceCandidate = {
 
 export type ShareRole = 'sharer' | 'viewer'
 
-export type MediaChannel = 'screen' | 'voice'
+export type MediaChannel = 'screen' | 'voice' | 'audio'
+
+const MEDIA_CHANNELS: readonly MediaChannel[] = ['screen', 'voice', 'audio']
 
 type SignalBase = { role: ShareRole; channel?: MediaChannel }
 
@@ -82,7 +84,7 @@ export function isChatMessage(v: unknown): v is ChatMessage {
 
 function isSignal(v: unknown): v is SignalPayload {
   if (!isObject(v) || (v.role !== 'sharer' && v.role !== 'viewer')) return false
-  if (v.channel !== undefined && v.channel !== 'screen' && v.channel !== 'voice') return false
+  if (v.channel !== undefined && !MEDIA_CHANNELS.includes(v.channel as MediaChannel)) return false
   switch (v.kind) {
     case 'offer':
     case 'answer':

@@ -9,6 +9,10 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
   - Se o outro estiver em 🔊, ouve na hora.
   - Se estiver em 🔇 (ex.: numa call do Teams), sua fala chega como mensagem de voz no chat.
   - Se o canal ao vivo não conectar, a gravação vai como mensagem do mesmo jeito.
+- Áudio do PC (🎧): transmite o som da máquina em tempo real, sem compartilhar a tela (ex.: o áudio da call do Teams do outro).
+  - O app cria uma fonte virtual (`pw-loopback`, do pacote `pipewire-bin`) só enquanto transmite. Ela não vira o microfone padrão.
+  - Quem recebe ajusta o volume e pode silenciar. Se estiver em 🔇, já começa mudo.
+  - Quando você fala no walkie, esse áudio abaixa sozinho, para não ouvir o eco da própria voz.
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo", e notificação do sistema desligada por padrão.
 

@@ -5,6 +5,9 @@ type Props = {
   liveAudio: boolean
   onToggleLiveAudio: () => void
   sharing: boolean
+  sharingAudio: boolean
+  audioBusy: boolean
+  onToggleAudio: () => void
   onShare: () => void
   onStopShare: () => void
   onToggleSettings: () => void
@@ -12,7 +15,18 @@ type Props = {
 
 const api = window.pairlan
 
-export function TitleBar({ status, liveAudio, onToggleLiveAudio, sharing, onShare, onStopShare, onToggleSettings }: Props) {
+export function TitleBar({
+  status,
+  liveAudio,
+  onToggleLiveAudio,
+  sharing,
+  sharingAudio,
+  audioBusy,
+  onToggleAudio,
+  onShare,
+  onStopShare,
+  onToggleSettings
+}: Props) {
   const connected = status.state === 'connected'
   const label = connected ? status.peer.name : status.state === 'connecting' ? 'conectando…' : 'procurando par na rede…'
 
@@ -30,6 +44,14 @@ export function TitleBar({ status, liveAudio, onToggleLiveAudio, sharing, onShar
             Compartilhar
           </button>
         )}
+        <button
+          className={sharingAudio ? 'ghost on' : 'ghost'}
+          onClick={onToggleAudio}
+          disabled={!connected || audioBusy}
+          title={sharingAudio ? 'Parar de transmitir o áudio do PC' : 'Transmitir o áudio do PC (sem tela)'}
+        >
+          🎧
+        </button>
         <button
           className="ghost"
           onClick={onToggleLiveAudio}
