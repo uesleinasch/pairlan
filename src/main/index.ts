@@ -75,7 +75,6 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
     title: 'Notes',
     icon: resourcePath('icon.png'),
     show: false,
-    frame: false,
     transparent: true,
     backgroundColor: '#00000000',
     alwaysOnTop,
@@ -294,8 +293,6 @@ async function boot(): Promise<void> {
   ipcMain.handle('sysaudio:start', () => systemAudio.start())
   ipcMain.on('sysaudio:stop', () => systemAudio.stop())
 
-  ipcMain.on('window:minimize', () => win?.minimize())
-  ipcMain.on('window:close', () => void askClose())
 
   ipcMain.handle('peer:connect', (_e, input: unknown) => {
     const target = typeof input === 'string' ? parseAddress(input, runtime.linkPort) : null

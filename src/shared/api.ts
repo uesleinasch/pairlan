@@ -51,8 +51,6 @@ export type PairlanApi = {
   setSharing(sharing: boolean): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
-  minimizeWindow(): void
-  closeWindow(): void
   pickFiles(): Promise<ChatMessage[]>
   sendFilePaths(paths: string[]): Promise<ChatMessage[]>
   sendFileData(name: string, data: ArrayBuffer): Promise<ChatMessage[]>
