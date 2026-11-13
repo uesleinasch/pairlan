@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type SnackbarAction = { label: string; run: () => void }
-type Item = { id: number; text: string; action?: SnackbarAction }
+export type SnackbarItem = { id: number; text: string; action?: SnackbarAction }
 
 const HIDE_AFTER_MS = 6000
 
 export function useSnackbar() {
-  const [item, setItem] = useState<Item | null>(null)
+  const [item, setItem] = useState<SnackbarItem | null>(null)
   const seq = useRef(0)
 
   const show = useCallback((text: string, action?: SnackbarAction) => {
@@ -25,7 +25,7 @@ export function useSnackbar() {
   return { item, show, dismiss }
 }
 
-export function Snackbar({ item, onDismiss }: { item: Item | null; onDismiss: () => void }) {
+export function Snackbar({ item, onDismiss }: { item: SnackbarItem | null; onDismiss: () => void }) {
   return (
     <div className="snackbar-region" role="status" aria-live="polite">
       {item && (
