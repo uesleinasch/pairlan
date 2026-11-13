@@ -41,6 +41,7 @@ type Props = {
   onToggleControl: () => void
   onSend: (text: string) => Promise<boolean>
   onAttached: (msgs: ChatMessage[]) => void
+  onClearHistory: () => Promise<void>
 }
 
 const progressBar = (done: number, total: number) => {
@@ -151,6 +152,13 @@ export function TerminalView(p: Props) {
       case 'limpar':
         setLocal([])
         return setClearedAt(Date.now())
+      case 'apagar':
+        if (arg.toLowerCase() !== 'sim') {
+          return push('out', 'isso apaga todo o histórico deste pc (o par continua com o dele).\nconfirme com: /apagar sim')
+        }
+        await p.onClearHistory()
+        setLocal([])
+        return push('out', 'histórico apagado.')
     }
   }
 
@@ -359,6 +367,11 @@ export function TerminalView(p: Props) {
               onClose={() => setConfigOpen(false)}
               onChange={(patch) => void api.setConfig(patch)}
               onConnect={api.connectManual}
+              onClearHistory={async () => {
+                await p.onClearHistory()
+                setLocal([])
+                push('out', 'histórico apagado.')
+              }}
             />
           )}
         </section>

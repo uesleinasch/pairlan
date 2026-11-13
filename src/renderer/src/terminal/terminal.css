@@ -393,3 +393,7 @@
   cursor: pointer;
   padding: 0 4px;
 }
+
+.term-link.term-danger {
+  color: var(--term-red);
+}
