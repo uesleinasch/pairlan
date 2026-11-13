@@ -36,4 +36,6 @@ export type PairlanApi = {
   setSharing(sharing: boolean): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
+  minimizeWindow(): void
+  hideWindow(): void
 }

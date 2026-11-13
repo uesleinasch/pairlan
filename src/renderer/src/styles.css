@@ -11,6 +11,8 @@
   --mine: #134e4a;
   --warn: #f59e0b;
   --danger: #ef4444;
+  --bg-alpha: 1;
+  --content-alpha: 1;
 }
 
 * {
@@ -24,9 +26,35 @@ body,
   height: 100%;
 }
 
+html,
 body {
-  background: rgb(var(--bg));
+  background: transparent;
   color: var(--text);
+}
+
+.app {
+  background: rgb(var(--bg) / var(--bg-alpha));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.app > * {
+  opacity: var(--content-alpha);
+}
+
+.drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.bar .actions {
+  display: flex;
+  gap: 2px;
 }
 
 button,
@@ -271,4 +299,20 @@ button.danger {
 
 .screen ~ .chat {
   flex: 0 1 40%;
+}
+
+.settings label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings label.check input {
+  width: auto;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warn);
 }
