@@ -21,4 +21,13 @@ describe('History', () => {
     expect(h.load().map((m) => m.id)).toEqual(['1', '2', '3'])
     expect(h.load(2).map((m) => m.id)).toEqual(['2', '3'])
   })
+
+  it('clears everything', () => {
+    const h = new History(join(mkdtempSync(join(tmpdir(), 'pairlan-h-')), 'history.jsonl'))
+    h.append(msg('1'))
+    h.clear()
+    expect(h.load()).toEqual([])
+    h.append(msg('2'))
+    expect(h.load().map((m) => m.id)).toEqual(['2'])
+  })
 })

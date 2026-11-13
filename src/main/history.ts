@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { isChatMessage } from '../shared/protocol'
 import type { StoredMessage } from './transfer'
@@ -10,6 +10,10 @@ export class History {
 
   append(msg: StoredMessage): void {
     appendFileSync(this.file, JSON.stringify(msg) + '\n')
+  }
+
+  clear(): void {
+    writeFileSync(this.file, '')
   }
 
   load(limit = 500): StoredMessage[] {

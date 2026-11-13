@@ -13,6 +13,7 @@ const api: PairlanApi = {
   getState: () => ipcRenderer.invoke('state:get'),
   sendChat: (text) => ipcRenderer.invoke('chat:send', text),
   sendTyping: () => ipcRenderer.send('chat:typing'),
+  clearHistory: () => ipcRenderer.invoke('history:clear'),
   setConfig: (patch) => ipcRenderer.invoke('config:set', patch),
   connectManual: (address) => ipcRenderer.invoke('peer:connect', address),
   setSearching: (searching) => ipcRenderer.send('discovery:set', searching),
