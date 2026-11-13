@@ -7,7 +7,7 @@
   "license": "MIT",
   "homepage": "https://github.com/uesleinasch/pairlan",
   "scripts": {
-    "dev": "npm run icons && electron-vite dev --noSandbox",
+    "dev": "npm run icons && electron-vite dev --noSandbox -- --ozone-platform=x11",
     "build": "npm run icons && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests",

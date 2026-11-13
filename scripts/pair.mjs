@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import electron from 'electron'
 
 const launch = (profile, offset) =>
-  spawn(electron, ['.', '--no-sandbox'], {
+  spawn(electron, ['.', '--no-sandbox', '--ozone-platform=x11'], {
     stdio: 'inherit',
     env: { ...process.env, PAIRLAN_PROFILE: profile, PAIRLAN_PORT_OFFSET: String(offset) }
   })
