@@ -51,6 +51,14 @@ export type WireMessage =
   | { t: 'file-end'; id: string }
   | { t: 'laser'; x: number; y: number; click: boolean }
   | { t: 'laser-off' }
+  | { t: 'control-state'; allowed: boolean }
+  | { t: 'input'; input: RemoteInput }
+
+export type RemoteInput =
+  | { kind: 'move'; x: number; y: number }
+  | { kind: 'button'; button: number; down: boolean }
+  | { kind: 'scroll'; dx: number; dy: number }
+  | { kind: 'key'; code: string; down: boolean }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
@@ -102,6 +110,28 @@ function isSignal(v: unknown): v is SignalPayload {
   }
 }
 
+const isSteps = (v: unknown): v is number => Number.isInteger(v) && Math.abs(v as number) <= 20
+
+export function parseInput(v: unknown): RemoteInput | null {
+  if (!isObject(v)) return null
+  switch (v.kind) {
+    case 'move':
+      return isUnit(v.x) && isUnit(v.y) ? { kind: 'move', x: v.x, y: v.y } : null
+    case 'button':
+      return Number.isInteger(v.button) && typeof v.down === 'boolean'
+        ? { kind: 'button', button: v.button as number, down: v.down }
+        : null
+    case 'scroll':
+      return isSteps(v.dx) && isSteps(v.dy) ? { kind: 'scroll', dx: v.dx, dy: v.dy } : null
+    case 'key':
+      return isString(v.code) && v.code.length <= 32 && typeof v.down === 'boolean'
+        ? { kind: 'key', code: v.code, down: v.down }
+        : null
+    default:
+      return null
+  }
+}
+
 export function parseWire(raw: string): WireMessage | null {
   let data: unknown
   try {
@@ -135,6 +165,12 @@ export function parseWire(raw: string): WireMessage | null {
         : null
     case 'laser-off':
       return { t: 'laser-off' }
+    case 'control-state':
+      return typeof data.allowed === 'boolean' ? { t: 'control-state', allowed: data.allowed } : null
+    case 'input': {
+      const input = parseInput(data.input)
+      return input ? { t: 'input', input } : null
+    }
     default:
       return null
   }

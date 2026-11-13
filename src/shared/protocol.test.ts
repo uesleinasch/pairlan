@@ -21,7 +21,12 @@ describe('parseWire', () => {
       { t: 'file-chunk', id: 'f', data: 'AAAA' },
       { t: 'file-end', id: 'f' },
       { t: 'laser', x: 0.25, y: 1, click: false },
-      { t: 'laser-off' }
+      { t: 'laser-off' },
+      { t: 'control-state', allowed: true },
+      { t: 'input', input: { kind: 'move', x: 0, y: 0.5 } },
+      { t: 'input', input: { kind: 'button', button: 2, down: true } },
+      { t: 'input', input: { kind: 'scroll', dx: 0, dy: -3 } },
+      { t: 'input', input: { kind: 'key', code: 'KeyA', down: false } }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
@@ -46,6 +51,11 @@ describe('parseWire', () => {
     expect(parseWire('{"t":"presence","liveAudio":"sim"}')).toBeNull()
     expect(parseWire('{"t":"laser","x":1.2,"y":0,"click":false}')).toBeNull()
     expect(parseWire('{"t":"laser","x":0.5,"y":0.5}')).toBeNull()
+    expect(parseWire('{"t":"control-state"}')).toBeNull()
+    expect(parseWire('{"t":"input","input":{"kind":"move","x":-1,"y":0}}')).toBeNull()
+    expect(parseWire('{"t":"input","input":{"kind":"scroll","dx":0,"dy":500}}')).toBeNull()
+    expect(parseWire('{"t":"input","input":{"kind":"key","code":"KeyA"}}')).toBeNull()
+    expect(parseWire('{"t":"input","input":{"kind":"exec"}}')).toBeNull()
   })
 })
 
