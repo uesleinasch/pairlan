@@ -2,12 +2,17 @@ export const PROTOCOL_VERSION = 1
 
 export type PeerInfo = { id: string; name: string }
 
+export const MAX_ATTACHMENT_BYTES = 500 * 1024 * 1024
+
+export type Attachment = { name: string; size: number; mime: string }
+
 export type ChatMessage = {
   id: string
   from: string
   fromName: string
   text: string
   ts: number
+  attachment?: Attachment
 }
 
 export type IceCandidate = {
@@ -30,6 +35,9 @@ export type WireMessage =
   | { t: 'signal'; payload: SignalPayload }
   | { t: 'share-state'; sharing: boolean }
   | { t: 'typing' }
+  | { t: 'file-start'; msg: ChatMessage & { attachment: Attachment } }
+  | { t: 'file-chunk'; id: string; data: string }
+  | { t: 'file-end'; id: string }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
@@ -39,6 +47,18 @@ export function isPeerInfo(v: unknown): v is PeerInfo {
   return isObject(v) && isString(v.id) && v.id.length > 0 && isString(v.name)
 }
 
+export function isAttachment(v: unknown): v is Attachment {
+  return (
+    isObject(v) &&
+    isString(v.name) &&
+    v.name.length > 0 &&
+    isString(v.mime) &&
+    Number.isInteger(v.size) &&
+    (v.size as number) >= 0 &&
+    (v.size as number) <= MAX_ATTACHMENT_BYTES
+  )
+}
+
 export function isChatMessage(v: unknown): v is ChatMessage {
   return (
     isObject(v) &&
@@ -46,7 +66,8 @@ export function isChatMessage(v: unknown): v is ChatMessage {
     isString(v.from) &&
     isString(v.fromName) &&
     isString(v.text) &&
-    typeof v.ts === 'number'
+    typeof v.ts === 'number' &&
+    (v.attachment === undefined || isAttachment(v.attachment))
   )
 }
 
@@ -84,6 +105,12 @@ export function parseWire(raw: string): WireMessage | null {
       return typeof data.sharing === 'boolean' ? (data as WireMessage) : null
     case 'typing':
       return { t: 'typing' }
+    case 'file-start':
+      return isChatMessage(data.msg) && data.msg.attachment ? (data as WireMessage) : null
+    case 'file-chunk':
+      return isString(data.id) && isString(data.data) ? (data as WireMessage) : null
+    case 'file-end':
+      return isString(data.id) ? (data as WireMessage) : null
     default:
       return null
   }
