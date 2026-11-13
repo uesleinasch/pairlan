@@ -2,6 +2,8 @@ import type { LinkStatus } from '../../shared/api'
 
 type Props = {
   status: LinkStatus
+  liveAudio: boolean
+  onToggleLiveAudio: () => void
   sharing: boolean
   onShare: () => void
   onStopShare: () => void
@@ -10,7 +12,7 @@ type Props = {
 
 const api = window.pairlan
 
-export function TitleBar({ status, sharing, onShare, onStopShare, onToggleSettings }: Props) {
+export function TitleBar({ status, liveAudio, onToggleLiveAudio, sharing, onShare, onStopShare, onToggleSettings }: Props) {
   const connected = status.state === 'connected'
   const label = connected ? status.peer.name : status.state === 'connecting' ? 'conectando…' : 'procurando par na rede…'
 
@@ -28,6 +30,13 @@ export function TitleBar({ status, sharing, onShare, onStopShare, onToggleSettin
             Compartilhar
           </button>
         )}
+        <button
+          className="ghost"
+          onClick={onToggleLiveAudio}
+          title={liveAudio ? 'Ouvindo áudio ao vivo. Clique para receber como mensagem (ex.: em call)' : 'Áudio chega como mensagem. Clique para ouvir ao vivo'}
+        >
+          {liveAudio ? '🔊' : '🔇'}
+        </button>
         <button className="ghost" onClick={onToggleSettings} title="Configurações">
           ⚙
         </button>
