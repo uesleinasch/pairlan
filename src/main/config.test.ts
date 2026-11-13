@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { clampOpacity, ConfigStore, LINK_PORT, normalizeConfig, runtimeOptions } from './config'
+import { clampOpacity, ConfigStore, LINK_PORT, normalizeConfig, runtimeOptions, shellPrompt, windowLook } from './config'
 
 describe('clampOpacity', () => {
   it('keeps values between 0.3 and 1', () => {
@@ -45,5 +45,18 @@ describe('normalizeConfig', () => {
     expect(normalizeConfig({}).notifyMinimized).toBe(true)
     expect(normalizeConfig({ notifications: false } as never).notifyMinimized).toBe(true)
     expect(normalizeConfig({ notifyMinimized: false }).notifyMinimized).toBe(false)
+  })
+})
+
+describe('terminal mode', () => {
+  it('is off by default', () => {
+    expect(normalizeConfig({}).terminalMode).toBe(false)
+    expect(normalizeConfig({ terminalMode: true }).terminalMode).toBe(true)
+  })
+
+  it('builds a shell-like prompt and window title', () => {
+    expect(shellPrompt('ana', 'notebook.local')).toBe('ana@notebook')
+    expect(windowLook(true, 'ana@notebook')).toEqual({ title: 'ana@notebook: ~/pair', icon: 'terminal.png' })
+    expect(windowLook(false, 'ana@notebook')).toEqual({ title: 'Notes', icon: 'icon.png' })
   })
 })

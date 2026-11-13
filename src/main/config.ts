@@ -29,6 +29,15 @@ function defaultName(): string {
   }
 }
 
+export function shellPrompt(user = defaultName(), host = hostname()): string {
+  return `${user}@${host.split('.')[0]}`
+}
+
+export type WindowLook = { title: string; icon: string }
+
+export const windowLook = (terminalMode: boolean, prompt: string): WindowLook =>
+  terminalMode ? { title: `${prompt}: ~/pair`, icon: 'terminal.png' } : { title: 'Notes', icon: 'icon.png' }
+
 export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : randomUUID(),
@@ -37,7 +46,8 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     alwaysOnTop: raw.alwaysOnTop === true,
     notifyMinimized: raw.notifyMinimized !== false,
     manualPeer: typeof raw.manualPeer === 'string' ? raw.manualPeer.trim() : '',
-    liveAudio: raw.liveAudio !== false
+    liveAudio: raw.liveAudio !== false,
+    terminalMode: raw.terminalMode === true
   }
 }
 
