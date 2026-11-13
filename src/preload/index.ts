@@ -1,3 +1,30 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import type { PairlanApi } from '../shared/api'
 
-contextBridge.exposeInMainWorld('pairlan', {})
+function listen<T>(channel: string, cb: (payload: T) => void) {
+  const handler = (_e: IpcRendererEvent, payload: T) => cb(payload)
+  ipcRenderer.on(channel, handler)
+  return () => {
+    ipcRenderer.off(channel, handler)
+  }
+}
+
+const api: PairlanApi = {
+  getState: () => ipcRenderer.invoke('state:get'),
+  sendChat: (text) => ipcRenderer.invoke('chat:send', text),
+  sendTyping: () => ipcRenderer.send('chat:typing'),
+  setConfig: (patch) => ipcRenderer.invoke('config:set', patch),
+  connectManual: (address) => ipcRenderer.invoke('peer:connect', address),
+  onStatus: (cb) => listen('link:status', cb),
+  onChat: (cb) => listen('chat:message', cb),
+  onTyping: (cb) => listen('chat:typing', () => cb()),
+  onConfig: (cb) => listen('config', cb),
+  sendSignal: (payload) => ipcRenderer.send('rtc:signal', payload),
+  setSharing: (sharing) => ipcRenderer.send('share:state', sharing),
+  onSignal: (cb) => listen('rtc:signal', cb),
+  onRemoteSharing: (cb) => listen('share:remote', cb),
+  minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  hideWindow: () => ipcRenderer.send('window:hide')
+}
+
+contextBridge.exposeInMainWorld('pairlan', api)
