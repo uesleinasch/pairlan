@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  ipcMain,
+  Notification,
+  session,
+  type MenuItemConstructorOptions
+} from 'electron'
 import type { AppConfig } from '../shared/api'
 import { parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
@@ -27,7 +35,7 @@ function send(channel: string, payload?: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(alwaysOnTop: boolean): BrowserWindow {
   const w = new BrowserWindow({
     width: 420,
     height: 640,
@@ -36,6 +44,10 @@ function createWindow(): BrowserWindow {
     title: 'Notes',
     icon: resourcePath('icon.png'),
     show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -71,7 +83,34 @@ async function boot(): Promise<void> {
       win.focus()
     }
   }
-  const tray = new AppTray({ toggleWindow, quit: () => app.quit() })
+  const applyConfig = (patch: Partial<AppConfig>) => {
+    const next = config.update(patch)
+    link.updateSelf(self())
+    win?.setAlwaysOnTop(next.alwaysOnTop)
+    tray.rebuild()
+    send('config', next)
+    return next
+  }
+
+  const trayItems = (): MenuItemConstructorOptions[] => [
+    {
+      label: 'Opacidade',
+      submenu: [1, 0.8, 0.6, 0.4].map((value) => ({
+        label: `${Math.round(value * 100)}%`,
+        type: 'radio' as const,
+        checked: config.get().opacity === value,
+        click: () => applyConfig({ opacity: value })
+      }))
+    },
+    {
+      label: 'Sempre no topo',
+      type: 'checkbox',
+      checked: config.get().alwaysOnTop,
+      click: (item) => applyConfig({ alwaysOnTop: item.checked })
+    }
+  ]
+
+  const tray = new AppTray({ toggleWindow, quit: () => app.quit(), extraItems: trayItems })
 
   const notifyIncoming = (msg: ChatMessage) => {
     if (win?.isVisible() && win.isFocused()) return
@@ -148,12 +187,10 @@ async function boot(): Promise<void> {
       .catch(() => callback({}))
   })
 
-  ipcMain.handle('config:set', (_e, patch: Partial<AppConfig>) => {
-    const next = config.update(patch ?? {})
-    link.updateSelf(self())
-    send('config', next)
-    return next
-  })
+  ipcMain.handle('config:set', (_e, patch: Partial<AppConfig>) => applyConfig(patch ?? {}))
+
+  ipcMain.on('window:minimize', () => win?.minimize())
+  ipcMain.on('window:hide', () => win?.hide())
 
   ipcMain.handle('peer:connect', (_e, input: unknown) => {
     const target = typeof input === 'string' ? parseAddress(input, runtime.linkPort) : null
@@ -170,6 +207,6 @@ async function boot(): Promise<void> {
   })
   app.on('second-instance', () => win?.show())
 
-  win = createWindow()
+  win = createWindow(config.get().alwaysOnTop)
   win.on('focus', () => tray.clearUnread())
 }

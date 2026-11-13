@@ -30,6 +30,25 @@ export function Settings({ config, onChange, onConnect }: Props) {
         </div>
         {error && <span className="error">{error}</span>}
       </label>
+      <label>
+        Opacidade: {Math.round(config.opacity * 100)}%
+        <input
+          type="range"
+          min={30}
+          max={100}
+          step={5}
+          value={Math.round(config.opacity * 100)}
+          onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })}
+        />
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={config.alwaysOnTop}
+          onChange={(e) => onChange({ alwaysOnTop: e.target.checked })}
+        />
+        Sempre no topo
+      </label>
       <label className="check">
         <input
           type="checkbox"

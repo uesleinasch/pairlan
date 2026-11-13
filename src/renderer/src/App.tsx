@@ -4,6 +4,7 @@ import type { ChatMessage, PeerInfo } from '../../shared/protocol'
 import { Chat } from './Chat'
 import { ScreenView } from './ScreenView'
 import { Settings } from './Settings'
+import { TitleBar } from './TitleBar'
 import { useScreenShare } from './useScreenShare'
 
 const api = window.pairlan
@@ -50,29 +51,26 @@ export function App() {
     return msg !== null
   }, [])
 
+  useEffect(() => {
+    if (!config) return
+    const root = document.documentElement.style
+    root.setProperty('--bg-alpha', String(config.opacity))
+    root.setProperty('--content-alpha', String(0.5 + config.opacity / 2))
+  }, [config])
+
   if (!self || !config) return null
 
   const connected = status.state === 'connected'
-  const label = connected ? status.peer.name : status.state === 'connecting' ? 'conectando…' : 'procurando par na rede…'
 
   return (
     <main className="app">
-      <header className="bar">
-        <span className={`dot ${status.state}`} />
-        <span className="peer">{label}</span>
-        {share.sharing ? (
-          <button className="danger" onClick={() => share.stopSharing()}>
-            Parar
-          </button>
-        ) : (
-          <button onClick={() => void share.startSharing()} disabled={!connected} title="Compartilhar tela">
-            Compartilhar
-          </button>
-        )}
-        <button className="ghost" onClick={() => setShowSettings((v) => !v)} title="Configurações">
-          ⚙
-        </button>
-      </header>
+      <TitleBar
+        status={status}
+        sharing={share.sharing}
+        onShare={() => void share.startSharing()}
+        onStopShare={() => share.stopSharing()}
+        onToggleSettings={() => setShowSettings((v) => !v)}
+      />
       {share.error && <p className="notice">{share.error}</p>}
       {share.sharing && <p className="notice live">Você está compartilhando a tela</p>}
       {connected && (share.remoteSharing || share.remoteStream) && (

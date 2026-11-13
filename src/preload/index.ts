@@ -22,7 +22,9 @@ const api: PairlanApi = {
   sendSignal: (payload) => ipcRenderer.send('rtc:signal', payload),
   setSharing: (sharing) => ipcRenderer.send('share:state', sharing),
   onSignal: (cb) => listen('rtc:signal', cb),
-  onRemoteSharing: (cb) => listen('share:remote', cb)
+  onRemoteSharing: (cb) => listen('share:remote', cb),
+  minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  hideWindow: () => ipcRenderer.send('window:hide')
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)
