@@ -12,12 +12,17 @@ type Options = {
 
 export class AppTray {
   private readonly tray: Tray
-  private readonly icon = nativeImage.createFromPath(resourcePath('tray.png'))
-  private readonly unreadIcon = nativeImage.createFromPath(resourcePath('tray-unread.png'))
+  private readonly icons = {
+    normal: nativeImage.createFromPath(resourcePath('tray.png')),
+    normalUnread: nativeImage.createFromPath(resourcePath('tray-unread.png')),
+    terminal: nativeImage.createFromPath(resourcePath('terminal-tray.png')),
+    terminalUnread: nativeImage.createFromPath(resourcePath('terminal-tray-unread.png'))
+  }
   private unread = 0
+  private terminal = false
 
   constructor(private readonly opts: Options) {
-    this.tray = new Tray(this.icon)
+    this.tray = new Tray(this.icons.normal)
     this.tray.setToolTip('Notes')
     this.tray.on('click', opts.toggleWindow)
     this.rebuild()
@@ -41,10 +46,22 @@ export class AppTray {
     this.tray.setContextMenu(Menu.buildFromTemplate(items))
   }
 
+  setTerminal(on: boolean): void {
+    if (on === this.terminal) return
+    this.terminal = on
+    this.tray.setToolTip(on ? 'Terminal' : 'Notes')
+    this.refreshIcon()
+  }
+
   private setUnread(n: number): void {
     if (n === this.unread) return
     this.unread = n
-    this.tray.setImage(n ? this.unreadIcon : this.icon)
+    this.refreshIcon()
     this.rebuild()
+  }
+
+  private refreshIcon(): void {
+    const { icons, terminal, unread } = this
+    this.tray.setImage(terminal ? (unread ? icons.terminalUnread : icons.terminal) : unread ? icons.normalUnread : icons.normal)
   }
 }

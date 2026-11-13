@@ -8,6 +8,7 @@ export type AppConfig = {
   notifyMinimized: boolean
   manualPeer: string
   liveAudio: boolean
+  terminalMode: boolean
 }
 
 export type LinkStatus =
@@ -16,6 +17,7 @@ export type LinkStatus =
 
 export type InitialState = {
   self: PeerInfo
+  prompt: string
   config: AppConfig
   status: LinkStatus
   searching: boolean
