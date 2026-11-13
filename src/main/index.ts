@@ -4,17 +4,21 @@ import {
   app,
   BrowserWindow,
   desktopCapturer,
+  dialog,
   ipcMain,
   Notification,
   session,
+  shell,
   type MenuItemConstructorOptions
 } from 'electron'
 import type { AppConfig } from '../shared/api'
 import { parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
+import { AttachmentService } from './attachments'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { parseAddress, PeerLink } from './peer-link'
+import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
 
 const runtime = runtimeOptions(process.env)
@@ -55,6 +59,8 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
     }
   })
   w.setContentProtection(true)
+  w.webContents.on('will-navigate', (e) => e.preventDefault())
+  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   w.once('ready-to-show', () => w.show())
   w.on('close', (e) => {
     if (quitting) return
@@ -87,6 +93,7 @@ async function boot(): Promise<void> {
     const next = config.update(patch)
     link.updateSelf(self())
     win?.setAlwaysOnTop(next.alwaysOnTop)
+    link.send({ t: 'presence', liveAudio: next.liveAudio })
     tray.rebuild()
     send('config', next)
     return next
@@ -116,13 +123,31 @@ async function boot(): Promise<void> {
     if (win?.isVisible() && win.isFocused()) return
     tray.addUnread()
     if (config.get().notifications && Notification.isSupported()) {
-      new Notification({ title: msg.fromName, body: msg.text.slice(0, 140) }).show()
+      const body = msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
+      new Notification({ title: msg.fromName, body }).show()
     }
   }
 
   const link = new PeerLink(self(), runtime.linkPort)
-  link.on('status', (status) => send('link:status', status))
+  const attachments = new AttachmentService({
+    link,
+    history,
+    dir: join(app.getPath('downloads'), runtime.profile ? `PairLAN-${runtime.profile}` : 'PairLAN'),
+    self,
+    onMessage: (msg) => {
+      send('chat:message', msg)
+      notifyIncoming(msg)
+    },
+    onProgress: (p) => send('file:progress', p)
+  })
+
+  link.on('status', (status) => {
+    if (status.state === 'connected') link.send({ t: 'presence', liveAudio: config.get().liveAudio })
+    else attachments.abortIncoming()
+    send('link:status', status)
+  })
   link.on('message', (m) => {
+    if (attachments.handleWire(m)) return
     switch (m.t) {
       case 'chat':
         history.append(m.msg)
@@ -137,6 +162,9 @@ async function boot(): Promise<void> {
         break
       case 'share-state':
         send('share:remote', m.sharing)
+        break
+      case 'presence':
+        send('peer:live-audio', m.liveAudio)
         break
     }
   })
@@ -189,6 +217,38 @@ async function boot(): Promise<void> {
 
   ipcMain.handle('config:set', (_e, patch: Partial<AppConfig>) => applyConfig(patch ?? {}))
 
+  ipcMain.handle('file:pick', async () => {
+    if (!win || !link.isConnected()) return []
+    const result = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'] })
+    return result.canceled ? [] : attachments.sendPaths(result.filePaths)
+  })
+
+  ipcMain.handle('file:send-paths', (_e, paths: unknown) => {
+    if (!Array.isArray(paths) || !link.isConnected()) return []
+    return attachments.sendPaths(paths.filter((p): p is string => typeof p === 'string' && p.length > 0))
+  })
+
+  ipcMain.handle('file:send-data', (_e, name: unknown, data: unknown) => {
+    if (typeof name !== 'string' || !(data instanceof ArrayBuffer) || !link.isConnected()) return []
+    return attachments.sendData(name, data)
+  })
+
+  ipcMain.on('file:open', (_e, id: unknown) => {
+    const path = typeof id === 'string' ? attachments.pathFor(id) : null
+    if (path) void shell.openPath(path)
+  })
+
+  ipcMain.on('file:reveal', (_e, id: unknown) => {
+    const path = typeof id === 'string' ? attachments.pathFor(id) : null
+    if (path) shell.showItemInFolder(path)
+  })
+
+  ipcMain.handle('file:preview', (_e, id: unknown) => (typeof id === 'string' ? attachments.preview(id) : null))
+
+  const systemAudio = new SystemAudioSource(process.pid)
+  ipcMain.handle('sysaudio:start', () => systemAudio.start())
+  ipcMain.on('sysaudio:stop', () => systemAudio.stop())
+
   ipcMain.on('window:minimize', () => win?.minimize())
   ipcMain.on('window:hide', () => win?.hide())
 
@@ -202,6 +262,7 @@ async function boot(): Promise<void> {
 
   app.on('before-quit', () => {
     quitting = true
+    systemAudio.stop()
     discovery.stop()
     void link.stop()
   })

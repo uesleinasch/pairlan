@@ -4,8 +4,21 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
 
 - O par é achado sozinho na rede (broadcast UDP). Se isso falhar, dá para digitar o IP.
 - O chat aceita blocos de código com ` ``` `, mostra quando o outro está digitando e guarda o histórico.
+- Anexos: botão 📎, arrastar ou colar (inclusive print da área de transferência). Até 500 MB por arquivo. O que chega vai para `~/Downloads/PairLAN`.
+- Walkie-talkie: segure 🎙 ou **Ctrl+Espaço** para falar e solte para encerrar. Quando o bipe toca, o canal está no ar.
+  - Se o outro estiver em 🔊, ouve na hora.
+  - Se estiver em 🔇 (ex.: numa call do Teams), sua fala chega como mensagem de voz no chat.
+  - Se o canal ao vivo não conectar, a gravação vai como mensagem do mesmo jeito.
+- Áudio do PC (🎧): transmite o som da máquina em tempo real, sem compartilhar a tela (ex.: o áudio da call do Teams do outro).
+  - O app cria uma fonte virtual (`pw-loopback`, do pacote `pipewire-bin`) só enquanto transmite. Ela não vira o microfone padrão.
+  - Quem recebe ajusta o volume e pode silenciar. Se estiver em 🔇, já começa mudo.
+  - Quando você fala no walkie, esse áudio abaixa sozinho, para não ouvir o eco da própria voz.
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo", e notificação do sistema desligada por padrão.
+
+## Interface
+
+A interface segue o Material Design 3 (`@material/web`), com tema claro/escuro do sistema. Os princípios de UX e as decisões de design estão em [docs/ux](docs/ux/README.md).
 
 ## Instalar
 
@@ -58,7 +71,9 @@ npm run typecheck
 npm run dist       # gera dist/*.AppImage
 ```
 
-Para rodar duas instâncias na mesma máquina:
+Para testar a dois na mesma máquina, use `npm run pair`. Ele faz o build e abre duas instâncias (perfis `a` e `b`) que se conectam sozinhas. Os anexos recebidos vão para `~/Downloads/PairLAN-a` e `~/Downloads/PairLAN-b`.
+
+Também dá para subir cada uma na mão:
 
 ```bash
 PAIRLAN_PROFILE=a npm run dev

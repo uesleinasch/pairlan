@@ -36,14 +36,15 @@ const connected = (s: LinkStatus) => s.state === 'connected'
 
 describe('PeerLink', () => {
   it('connects two peers, exchanges messages and reconnects', async () => {
-    const a = new PeerLink({ id: 'a', name: 'Ana' }, 48101)
-    const b = new PeerLink({ id: 'b', name: 'Bia' }, 48102)
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    const b = new PeerLink({ id: 'b', name: 'Bia' }, 0)
     links.push(a, b)
     await Promise.all([a.start(), b.start()])
+    const bPort = b.listeningPort()
 
     const aUp = waitFor<LinkStatus>(a, 'status', connected)
     const bUp = waitFor<LinkStatus>(b, 'status', connected)
-    a.connectTo('127.0.0.1', 48102)
+    a.connectTo('127.0.0.1', bPort)
     expect((await aUp).peer?.name).toBe('Bia')
     expect((await bUp).peer?.name).toBe('Ana')
 
@@ -52,7 +53,7 @@ describe('PeerLink', () => {
     expect(await got).toMatchObject({ t: 'chat', msg: { text: 'oi' } })
 
     await b.stop()
-    const b2 = new PeerLink({ id: 'b', name: 'Bia 2' }, 48102)
+    const b2 = new PeerLink({ id: 'b', name: 'Bia 2' }, bPort)
     links.push(b2)
     const aBack = waitFor<LinkStatus>(a, 'status', (s) => s.state === 'connected' && s.peer.name === 'Bia 2')
     await b2.start()
@@ -60,16 +61,17 @@ describe('PeerLink', () => {
   }, 15000)
 
   it('accepts only one peer at a time', async () => {
-    const a = new PeerLink({ id: 'a', name: 'Ana' }, 48111)
-    const b = new PeerLink({ id: 'b', name: 'Bia' }, 48112)
-    const c = new PeerLink({ id: 'c', name: 'Caio' }, 48113)
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    const b = new PeerLink({ id: 'b', name: 'Bia' }, 0)
+    const c = new PeerLink({ id: 'c', name: 'Caio' }, 0)
     links.push(a, b, c)
     await Promise.all([a.start(), b.start(), c.start()])
+    const aPort = a.listeningPort()
 
     const aUp = waitFor<LinkStatus>(a, 'status', connected)
-    b.connectTo('127.0.0.1', 48111)
+    b.connectTo('127.0.0.1', aPort)
     await aUp
-    c.connectTo('127.0.0.1', 48111)
+    c.connectTo('127.0.0.1', aPort)
     await new Promise((r) => setTimeout(r, 500))
     expect(a.status()).toMatchObject({ state: 'connected', peer: { id: 'b' } })
     expect(c.isConnected()).toBe(false)

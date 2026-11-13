@@ -7,6 +7,7 @@ export type AppConfig = {
   alwaysOnTop: boolean
   notifications: boolean
   manualPeer: string
+  liveAudio: boolean
 }
 
 export type LinkStatus =
@@ -21,6 +22,17 @@ export type InitialState = {
 }
 
 export type Unsubscribe = () => void
+
+export type SystemAudioResult = { ok: true; label: string } | { ok: false; error: string }
+
+export type TransferProgress = {
+  id: string
+  name: string
+  direction: 'in' | 'out'
+  done: number
+  total: number
+  finished: boolean
+}
 
 export type PairlanApi = {
   getState(): Promise<InitialState>
@@ -38,4 +50,15 @@ export type PairlanApi = {
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
   minimizeWindow(): void
   hideWindow(): void
+  pickFiles(): Promise<ChatMessage[]>
+  sendFilePaths(paths: string[]): Promise<ChatMessage[]>
+  sendFileData(name: string, data: ArrayBuffer): Promise<ChatMessage[]>
+  pathForFile(file: File): string
+  openFile(id: string): void
+  revealFile(id: string): void
+  previewFile(id: string): Promise<string | null>
+  onTransfer(cb: (progress: TransferProgress) => void): Unsubscribe
+  onPeerLiveAudio(cb: (liveAudio: boolean) => void): Unsubscribe
+  startSystemAudio(): Promise<SystemAudioResult>
+  stopSystemAudio(): void
 }

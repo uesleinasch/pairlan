@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppConfig, LinkStatus } from '../../shared/api'
+import type { AppConfig, LinkStatus, TransferProgress } from '../../shared/api'
 import type { ChatMessage, PeerInfo } from '../../shared/protocol'
-import { Chat } from './Chat'
+import { Conversation } from './Conversation'
+import { MediaControls } from './MediaControls'
 import { ScreenView } from './ScreenView'
-import { Settings } from './Settings'
-import { TitleBar } from './TitleBar'
+import { SettingsDialog } from './SettingsDialog'
+import { Snackbar, useSnackbar } from './Snackbar'
+import { SystemAudioBar } from './SystemAudioBar'
+import { TopAppBar } from './TopAppBar'
 import { useScreenShare } from './useScreenShare'
+import { useSystemAudio } from './useSystemAudio'
+import { useWalkie } from './useWalkie'
 
 const api = window.pairlan
 
@@ -15,9 +20,18 @@ export function App() {
   const [status, setStatus] = useState<LinkStatus>({ state: 'idle', peer: null, address: null })
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [peerTyping, setPeerTyping] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
+  const [transfers, setTransfers] = useState<TransferProgress[]>([])
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const typingTimer = useRef<number | undefined>(undefined)
-  const share = useScreenShare(status.state === 'connected')
+  const snackbar = useSnackbar()
+
+  const connected = status.state === 'connected'
+  const share = useScreenShare(connected)
+  const appendMessages = useCallback((msgs: ChatMessage[]) => setMessages((prev) => [...prev, ...msgs]), [])
+  const walkie = useWalkie(connected, config?.liveAudio ?? true, appendMessages)
+  const { startTalking, stopTalking } = walkie
+  const ducked = walkie.state !== 'idle'
+  const systemAudio = useSystemAudio(connected, config?.liveAudio ?? true, ducked)
 
   useEffect(() => {
     void api.getState().then((s) => {
@@ -37,6 +51,9 @@ export function App() {
         window.clearTimeout(typingTimer.current)
         typingTimer.current = window.setTimeout(() => setPeerTyping(false), 3000)
       }),
+      api.onTransfer((p) =>
+        setTransfers((prev) => (p.finished ? prev.filter((t) => t.id !== p.id) : [...prev.filter((t) => t.id !== p.id), p]))
+      ),
       api.onConfig((c) => {
         setConfig(c)
         setSelf({ id: c.id, name: c.name })
@@ -45,48 +62,119 @@ export function App() {
     return () => offs.forEach((off) => off())
   }, [])
 
-  const send = useCallback(async (text: string) => {
-    const msg = await api.sendChat(text)
-    if (msg) setMessages((prev) => [...prev, msg])
-    return msg !== null
+  const { show } = snackbar
+  useEffect(() => {
+    if (share.error) show(share.error)
+  }, [share.error, show])
+  useEffect(() => {
+    if (walkie.error) show(walkie.error)
+  }, [walkie.error, show])
+  const startAudio = useRef(systemAudio.start)
+  startAudio.current = systemAudio.start
+  useEffect(() => {
+    if (systemAudio.error) show(systemAudio.error, { label: 'Tentar de novo', run: () => void startAudio.current() })
+  }, [systemAudio.error, show])
+
+  useEffect(() => {
+    const isHotkey = (e: KeyboardEvent) => e.ctrlKey && e.code === 'Space'
+    const down = (e: KeyboardEvent) => {
+      if (!isHotkey(e)) return
+      e.preventDefault()
+      if (!e.repeat) void startTalking()
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === 'Control') void stopTalking()
+    }
+    const blur = () => void stopTalking()
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', blur)
+    }
+  }, [startTalking, stopTalking])
+
+  useEffect(() => {
+    const block = (e: globalThis.DragEvent) => e.preventDefault()
+    document.addEventListener('dragover', block)
+    document.addEventListener('drop', block)
+    return () => {
+      document.removeEventListener('dragover', block)
+      document.removeEventListener('drop', block)
+    }
   }, [])
 
   useEffect(() => {
     if (!config) return
     const root = document.documentElement.style
     root.setProperty('--bg-alpha', String(config.opacity))
-    root.setProperty('--content-alpha', String(0.5 + config.opacity / 2))
+    root.setProperty('--content-alpha', String(0.75 + config.opacity * 0.25))
   }, [config])
+
+  const send = useCallback(async (text: string) => {
+    const msg = await api.sendChat(text)
+    if (msg) setMessages((prev) => [...prev, msg])
+    return msg !== null
+  }, [])
 
   if (!self || !config) return null
 
-  const connected = status.state === 'connected'
+  const peerName = connected ? status.peer.name : ''
+  const showScreen = connected && (share.remoteSharing || share.remoteStream !== null)
+  const outgoing = [share.sharing && 'tela', systemAudio.sharing && 'áudio do PC'].filter((v): v is string => Boolean(v))
 
   return (
     <main className="app">
-      <TitleBar
-        status={status}
-        sharing={share.sharing}
-        onShare={() => void share.startSharing()}
-        onStopShare={() => share.stopSharing()}
-        onToggleSettings={() => setShowSettings((v) => !v)}
-      />
-      {share.error && <p className="notice">{share.error}</p>}
-      {share.sharing && <p className="notice live">Você está compartilhando a tela</p>}
-      {connected && (share.remoteSharing || share.remoteStream) && (
-        <ScreenView stream={share.remoteStream} peerName={status.peer.name} />
-      )}
-      {showSettings && (
-        <Settings config={config} onChange={(p) => void api.setConfig(p)} onConnect={api.connectManual} />
-      )}
-      <Chat
-        selfId={self.id}
-        messages={messages}
+      <TopAppBar status={status} outgoing={outgoing} onOpenSettings={() => setSettingsOpen(true)} />
+      {!connected && <md-linear-progress indeterminate className="searching" aria-label="Procurando o par" />}
+      <MediaControls
         connected={connected}
-        peerTyping={peerTyping}
-        onSend={send}
-        onTyping={api.sendTyping}
+        sharingScreen={share.sharing}
+        sharingAudio={systemAudio.sharing}
+        audioBusy={systemAudio.starting}
+        liveAudio={config.liveAudio}
+        onToggleScreen={() => (share.sharing ? share.stopSharing() : void share.startSharing())}
+        onToggleAudio={() => (systemAudio.sharing ? systemAudio.stop() : void systemAudio.start())}
+        onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
       />
+      <div className={showScreen ? 'body split' : 'body'}>
+        {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} />}
+        <div className="side">
+          {connected && systemAudio.incoming && (
+            <SystemAudioBar
+              peerName={peerName}
+              muted={systemAudio.muted}
+              volume={systemAudio.volume}
+              ducked={ducked}
+              onToggleMute={() => systemAudio.setMuted(!systemAudio.muted)}
+              onVolume={systemAudio.setVolume}
+            />
+          )}
+          <Conversation
+            selfId={self.id}
+            peerName={peerName}
+            messages={messages}
+            transfers={transfers}
+            connected={connected}
+            peerTyping={peerTyping}
+            walkie={walkie}
+            onSend={send}
+            onAttached={appendMessages}
+            onTyping={api.sendTyping}
+            onConnectByIp={() => setSettingsOpen(true)}
+          />
+        </div>
+      </div>
+      <SettingsDialog
+        open={settingsOpen}
+        config={config}
+        onClose={() => setSettingsOpen(false)}
+        onChange={(patch) => void api.setConfig(patch)}
+        onConnect={api.connectManual}
+      />
+      <Snackbar item={snackbar.item} onDismiss={snackbar.dismiss} />
     </main>
   )
 }

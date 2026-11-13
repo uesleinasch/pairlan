@@ -36,7 +36,8 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     opacity: clampOpacity(raw.opacity),
     alwaysOnTop: raw.alwaysOnTop === true,
     notifications: raw.notifications === true,
-    manualPeer: typeof raw.manualPeer === 'string' ? raw.manualPeer.trim() : ''
+    manualPeer: typeof raw.manualPeer === 'string' ? raw.manualPeer.trim() : '',
+    liveAudio: raw.liveAudio !== false
   }
 }
 
