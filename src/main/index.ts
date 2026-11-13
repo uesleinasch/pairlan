@@ -34,6 +34,26 @@ if (!app.requestSingleInstanceLock()) {
 
 let win: BrowserWindow | null = null
 let quitting = false
+let askingClose = false
+
+async function askClose(): Promise<void> {
+  if (!win || askingClose) return
+  askingClose = true
+  const { response } = await dialog
+    .showMessageBox(win, {
+      type: 'question',
+      title: 'Fechar',
+      message: 'Esconder na bandeja ou fechar o PairLAN?',
+      detail: 'Na bandeja ele continua conectado e recebendo mensagens.',
+      buttons: ['Esconder na bandeja', 'Fechar o PairLAN', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true
+    })
+    .finally(() => (askingClose = false))
+  if (response === 0) win?.hide()
+  else if (response === 1) app.quit()
+}
 
 function send(channel: string, payload?: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
@@ -65,7 +85,7 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
   w.on('close', (e) => {
     if (quitting) return
     e.preventDefault()
-    w.hide()
+    void askClose()
   })
   if (process.env.ELECTRON_RENDERER_URL) {
     w.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -250,7 +270,7 @@ async function boot(): Promise<void> {
   ipcMain.on('sysaudio:stop', () => systemAudio.stop())
 
   ipcMain.on('window:minimize', () => win?.minimize())
-  ipcMain.on('window:hide', () => win?.hide())
+  ipcMain.on('window:close', () => void askClose())
 
   ipcMain.handle('peer:connect', (_e, input: unknown) => {
     const target = typeof input === 'string' ? parseAddress(input, runtime.linkPort) : null
