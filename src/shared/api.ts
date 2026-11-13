@@ -1,4 +1,4 @@
-import type { ChatMessage, PeerInfo } from './protocol'
+import type { ChatMessage, PeerInfo, SignalPayload } from './protocol'
 
 export type AppConfig = {
   id: string
@@ -32,4 +32,8 @@ export type PairlanApi = {
   onChat(cb: (msg: ChatMessage) => void): Unsubscribe
   onTyping(cb: () => void): Unsubscribe
   onConfig(cb: (config: AppConfig) => void): Unsubscribe
+  sendSignal(payload: SignalPayload): void
+  setSharing(sharing: boolean): void
+  onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
+  onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
 }

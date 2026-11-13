@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, desktopCapturer, ipcMain, session } from 'electron'
 import type { AppConfig } from '../shared/api'
-import { PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
+import { parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
@@ -65,6 +65,12 @@ async function boot(): Promise<void> {
       case 'typing':
         send('chat:typing')
         break
+      case 'signal':
+        send('rtc:signal', m.payload)
+        break
+      case 'share-state':
+        send('share:remote', m.sharing)
+        break
     }
   })
   await link.start().catch((err) => console.error('[link] porta ocupada?', err.message))
@@ -97,6 +103,22 @@ async function boot(): Promise<void> {
   })
 
   ipcMain.on('chat:typing', () => link.send({ t: 'typing' }))
+
+  ipcMain.on('rtc:signal', (_e, payload: unknown) => {
+    const m = parseWire(JSON.stringify({ t: 'signal', payload }))
+    if (m) link.send(m)
+  })
+
+  ipcMain.on('share:state', (_e, sharing: unknown) => {
+    if (typeof sharing === 'boolean') link.send({ t: 'share-state', sharing })
+  })
+
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer
+      .getSources({ types: ['screen'] })
+      .then((sources) => (sources[0] ? callback({ video: sources[0] }) : callback({})))
+      .catch(() => callback({}))
+  })
 
   ipcMain.handle('config:set', (_e, patch: Partial<AppConfig>) => {
     const next = config.update(patch ?? {})
