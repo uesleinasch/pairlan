@@ -6,7 +6,9 @@ import { ScreenView } from './ScreenView'
 import { Settings } from './Settings'
 import { TitleBar } from './TitleBar'
 import { useScreenShare } from './useScreenShare'
+import { useSystemAudio } from './useSystemAudio'
 import { useWalkie } from './useWalkie'
+import { SystemAudioBar } from './SystemAudioBar'
 
 const api = window.pairlan
 
@@ -23,6 +25,8 @@ export function App() {
   const appendMessages = useCallback((msgs: ChatMessage[]) => setMessages((prev) => [...prev, ...msgs]), [])
   const walkie = useWalkie(status.state === 'connected', config?.liveAudio ?? true, appendMessages)
   const { startTalking, stopTalking } = walkie
+  const ducked = walkie.state !== 'idle'
+  const systemAudio = useSystemAudio(status.state === 'connected', config?.liveAudio ?? true, ducked)
 
   useEffect(() => {
     const isHotkey = (e: KeyboardEvent) => e.ctrlKey && e.code === 'Space'
@@ -108,12 +112,27 @@ export function App() {
         liveAudio={config.liveAudio}
         onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
         sharing={share.sharing}
+        sharingAudio={systemAudio.sharing}
+        audioBusy={systemAudio.starting}
+        onToggleAudio={() => (systemAudio.sharing ? systemAudio.stop() : void systemAudio.start())}
         onShare={() => void share.startSharing()}
         onStopShare={() => share.stopSharing()}
         onToggleSettings={() => setShowSettings((v) => !v)}
       />
       {share.error && <p className="notice">{share.error}</p>}
       {share.sharing && <p className="notice live">Você está compartilhando a tela</p>}
+      {systemAudio.sharing && <p className="notice live">Você está transmitindo o áudio do PC</p>}
+      {systemAudio.error && <p className="notice">{systemAudio.error}</p>}
+      {connected && systemAudio.incoming && (
+        <SystemAudioBar
+          peerName={status.peer.name}
+          muted={systemAudio.muted}
+          volume={systemAudio.volume}
+          ducked={ducked}
+          onToggleMute={() => systemAudio.setMuted(!systemAudio.muted)}
+          onVolume={systemAudio.setVolume}
+        />
+      )}
       {connected && (share.remoteSharing || share.remoteStream) && (
         <ScreenView stream={share.remoteStream} peerName={status.peer.name} />
       )}
