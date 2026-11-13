@@ -1,4 +1,4 @@
-import type { ChatMessage, PeerInfo, SignalPayload } from './protocol'
+import type { ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
 
 export type AppConfig = {
   id: string
@@ -51,6 +51,10 @@ export type PairlanApi = {
   setSharing(sharing: boolean): void
   setShareCapture(size: { width: number; height: number } | null): void
   sendLaser(point: { x: number; y: number; click: boolean } | null): void
+  setControl(allowed: boolean): Promise<{ ok: boolean; error?: string }>
+  onControlState(cb: (allowed: boolean) => void): Unsubscribe
+  onPeerControl(cb: (allowed: boolean) => void): Unsubscribe
+  sendInput(input: RemoteInput): void
   onSignal(cb: (payload: SignalPayload) => void): Unsubscribe
   onRemoteSharing(cb: (sharing: boolean) => void): Unsubscribe
   minimizeWindow(): void

@@ -6,19 +6,22 @@ import {
   desktopCapturer,
   dialog,
   ipcMain,
+  Menu,
   Notification,
   session,
   shell,
   type MenuItemConstructorOptions
 } from 'electron'
 import type { AppConfig } from '../shared/api'
-import { parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
+import { parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { LaserOverlay } from './laser-overlay'
 import { parseAddress, PeerLink } from './peer-link'
+import { RemoteControl } from './remote-control'
+import { PortalCancelled, RemoteDesktop } from './remote-desktop'
 import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
 
@@ -107,6 +110,7 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
 }
 
 async function boot(): Promise<void> {
+  Menu.setApplicationMenu(null)
   const userData = app.getPath('userData')
   const config = new ConfigStore(userData)
   const history = new History(join(userData, 'history.jsonl'))
@@ -174,6 +178,21 @@ async function boot(): Promise<void> {
 
   const laser = new LaserOverlay()
   let sharingScreen = false
+  const portal = new RemoteDesktop()
+  const remote = new RemoteControl(portal)
+  let controlAllowed = false
+
+  const setControl = (allowed: boolean) => {
+    if (!allowed) {
+      remote.releaseAll()
+      portal.stop()
+    }
+    const changed = controlAllowed !== allowed
+    controlAllowed = allowed
+    if (changed) link.send({ t: 'control-state', allowed })
+    send('control:state', allowed)
+  }
+  portal.on('closed', () => setControl(false))
 
   link.on('status', (status) => {
     if (status.state === 'connected') link.send({ t: 'presence', liveAudio: config.get().liveAudio })
@@ -181,6 +200,8 @@ async function boot(): Promise<void> {
       attachments.abortIncoming()
       sharingScreen = false
       laser.close()
+      setControl(false)
+      send('peer:control', false)
     }
     send('link:status', status)
   })
@@ -209,6 +230,12 @@ async function boot(): Promise<void> {
         break
       case 'laser-off':
         laser.hide()
+        break
+      case 'control-state':
+        send('peer:control', m.allowed)
+        break
+      case 'input':
+        if (controlAllowed) remote.apply(m.input)
         break
     }
   })
@@ -266,8 +293,34 @@ async function boot(): Promise<void> {
   ipcMain.on('share:state', (_e, sharing: unknown) => {
     if (typeof sharing !== 'boolean') return
     sharingScreen = sharing
-    if (!sharing) laser.close()
+    if (!sharing) {
+      laser.close()
+      setControl(false)
+    }
     link.send({ t: 'share-state', sharing })
+  })
+
+  ipcMain.handle('control:set', async (_e, allowed: unknown) => {
+    if (allowed !== true) {
+      setControl(false)
+      return { ok: true }
+    }
+    if (!sharingScreen || !link.isConnected()) return { ok: false, error: 'Compartilhe a tela antes de liberar o controle.' }
+    try {
+      await portal.start()
+      if (!sharingScreen || !link.isConnected()) throw new Error('A tela parou de ser compartilhada.')
+      setControl(true)
+      return { ok: true }
+    } catch (err) {
+      setControl(false)
+      if (err instanceof PortalCancelled) return { ok: false, error: '' }
+      return { ok: false, error: err instanceof Error ? err.message : 'Falha ao liberar o controle.' }
+    }
+  })
+
+  ipcMain.on('input:send', (_e, input: unknown) => {
+    const parsed = parseInput(input)
+    if (parsed) link.send({ t: 'input', input: parsed })
   })
 
   ipcMain.on('share:capture', (_e, size: unknown) => {
@@ -336,6 +389,7 @@ async function boot(): Promise<void> {
   app.on('before-quit', () => {
     quitting = true
     laser.close()
+    setControl(false)
     systemAudio.stop()
     discovery.stop()
     void link.stop()
