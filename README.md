@@ -16,6 +16,10 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo", e notificação do sistema desligada por padrão.
 
+## Interface
+
+A interface segue o Material Design 3 (`@material/web`), com tema claro/escuro do sistema. Os princípios de UX e as decisões de design estão em [docs/ux](docs/ux/README.md).
+
 ## Instalar
 
 Baixe o `.AppImage` na [última release](https://github.com/uesleinasch/pairlan/releases/latest):
