@@ -7,6 +7,7 @@ import { ScreenView } from './ScreenView'
 import { SettingsDialog } from './SettingsDialog'
 import { Snackbar, useSnackbar } from './Snackbar'
 import { SystemAudioBar } from './SystemAudioBar'
+import { TerminalView } from './terminal/TerminalView'
 import { TopAppBar } from './TopAppBar'
 import { useScreenShare } from './useScreenShare'
 import { useSystemAudio } from './useSystemAudio'
@@ -16,6 +17,7 @@ const api = window.pairlan
 
 export function App() {
   const [self, setSelf] = useState<PeerInfo | null>(null)
+  const [prompt, setPrompt] = useState('')
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [status, setStatus] = useState<LinkStatus>({ state: 'idle', peer: null, address: null })
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -40,6 +42,7 @@ export function App() {
   useEffect(() => {
     void api.getState().then((s) => {
       setSelf(s.self)
+      setPrompt(s.prompt)
       setConfig(s.config)
       setStatus(s.status)
       setSearching(s.searching)
@@ -139,6 +142,33 @@ export function App() {
   const peerName = connected ? status.peer.name : ''
   const showScreen = connected && (share.remoteSharing || share.remoteStream !== null)
   const outgoing = [share.sharing && 'tela', systemAudio.sharing && 'áudio do PC'].filter((v): v is string => Boolean(v))
+
+  if (config.terminalMode) {
+    return (
+      <TerminalView
+        prompt={prompt}
+        self={self}
+        config={config}
+        status={status}
+        searching={searching}
+        messages={messages}
+        transfers={transfers}
+        peerTyping={peerTyping}
+        walkie={walkie}
+        share={share}
+        systemAudio={systemAudio}
+        ducked={ducked}
+        controlAllowed={controlAllowed}
+        controlBusy={controlBusy}
+        peerControl={peerControl}
+        notice={snackbar.item}
+        onDismissNotice={snackbar.dismiss}
+        onToggleControl={() => void toggleControl()}
+        onSend={send}
+        onAttached={appendMessages}
+      />
+    )
+  }
 
   return (
     <main className="app">

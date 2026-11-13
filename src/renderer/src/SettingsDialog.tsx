@@ -110,6 +110,17 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect }: P
               onchange={(e: Event) => onChange({ notifyMinimized: selectedOf(e) })}
             />
           </label>
+          <label className="settings-switch">
+            <span>
+              <span className="type-body-medium">Modo terminal</span>
+              <span className="type-body-small">Deixa o app com cara de terminal, até no título. Volta com /tema</span>
+            </span>
+            <md-switch
+              selected={config.terminalMode}
+              aria-label="Modo terminal"
+              onchange={(e: Event) => onChange({ terminalMode: selectedOf(e) })}
+            />
+          </label>
         </section>
 
         <section>
