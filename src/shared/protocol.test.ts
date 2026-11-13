@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encodeWire, parseWire, PROTOCOL_VERSION, type WireMessage } from './protocol'
+import { channelOf, encodeWire, parseWire, PROTOCOL_VERSION, type WireMessage } from './protocol'
 
 describe('parseWire', () => {
   it('round-trips valid messages', () => {
@@ -9,6 +9,8 @@ describe('parseWire', () => {
       { t: 'signal', payload: { role: 'sharer', kind: 'offer', sdp: 'v=0' } },
       { t: 'signal', payload: { role: 'viewer', kind: 'ice', candidate: { candidate: 'c', sdpMid: '0' } } },
       { t: 'signal', payload: { role: 'sharer', kind: 'stop' } },
+      { t: 'signal', payload: { role: 'viewer', channel: 'voice', kind: 'answer', sdp: 'v=0' } },
+      { t: 'presence', liveAudio: false },
       { t: 'share-state', sharing: true },
       { t: 'typing' },
       {
@@ -37,5 +39,14 @@ describe('parseWire', () => {
       )
     ).toBeNull()
     expect(parseWire('{"t":"file-chunk","id":"f"}')).toBeNull()
+    expect(parseWire('{"t":"signal","payload":{"role":"sharer","channel":"radio","kind":"stop"}}')).toBeNull()
+    expect(parseWire('{"t":"presence","liveAudio":"sim"}')).toBeNull()
+  })
+})
+
+describe('channelOf', () => {
+  it('defaults to screen for old peers', () => {
+    expect(channelOf({ role: 'sharer', kind: 'stop' })).toBe('screen')
+    expect(channelOf({ role: 'sharer', channel: 'voice', kind: 'stop' })).toBe('voice')
   })
 })
