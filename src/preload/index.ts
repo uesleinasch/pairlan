@@ -15,6 +15,8 @@ const api: PairlanApi = {
   sendTyping: () => ipcRenderer.send('chat:typing'),
   setConfig: (patch) => ipcRenderer.invoke('config:set', patch),
   connectManual: (address) => ipcRenderer.invoke('peer:connect', address),
+  setSearching: (searching) => ipcRenderer.send('discovery:set', searching),
+  onSearching: (cb) => listen('discovery:state', cb),
   onStatus: (cb) => listen('link:status', cb),
   onChat: (cb) => listen('chat:message', cb),
   onTyping: (cb) => listen('chat:typing', () => cb()),

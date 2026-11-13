@@ -187,15 +187,30 @@ async function boot(): Promise<void> {
   discovery.on('peer', (peer) => {
     if (shouldInitiate(self().id, peer.id)) link.connectTo(peer.address, peer.linkPort)
   })
+  const dialManualPeer = () => {
+    const manual = parseAddress(config.get().manualPeer, runtime.linkPort)
+    if (manual) link.connectTo(manual.address, manual.port)
+  }
   discovery.start()
+  dialManualPeer()
 
-  const manual = parseAddress(config.get().manualPeer, runtime.linkPort)
-  if (manual) link.connectTo(manual.address, manual.port)
+  ipcMain.on('discovery:set', (_e, searching: unknown) => {
+    if (typeof searching !== 'boolean') return
+    if (searching) {
+      discovery.start()
+      dialManualPeer()
+    } else {
+      discovery.stop()
+      if (!link.isConnected()) link.cancelDial()
+    }
+    send('discovery:state', discovery.isRunning())
+  })
 
   ipcMain.handle('state:get', () => ({
     self: self(),
     config: config.get(),
     status: link.status(),
+    searching: discovery.isRunning(),
     history: history.load()
   }))
 

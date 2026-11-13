@@ -18,6 +18,7 @@ export type InitialState = {
   self: PeerInfo
   config: AppConfig
   status: LinkStatus
+  searching: boolean
   history: ChatMessage[]
 }
 
@@ -40,6 +41,8 @@ export type PairlanApi = {
   sendTyping(): void
   setConfig(patch: Partial<AppConfig>): Promise<AppConfig>
   connectManual(address: string): Promise<boolean>
+  setSearching(searching: boolean): void
+  onSearching(cb: (searching: boolean) => void): Unsubscribe
   onStatus(cb: (status: LinkStatus) => void): Unsubscribe
   onChat(cb: (msg: ChatMessage) => void): Unsubscribe
   onTyping(cb: () => void): Unsubscribe
