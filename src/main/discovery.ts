@@ -65,7 +65,12 @@ export class Discovery extends EventEmitter<{ peer: [DiscoveredPeer] }> {
     super()
   }
 
+  isRunning(): boolean {
+    return this.socket !== null
+  }
+
   start(): void {
+    if (this.socket) return
     const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
     this.socket = socket
     socket.on('error', (err) => console.warn('[discovery]', err.message))

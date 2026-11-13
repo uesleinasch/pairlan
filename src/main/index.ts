@@ -26,7 +26,14 @@ if (runtime.profile) {
   app.setPath('userData', join(app.getPath('appData'), `pairlan-${runtime.profile}`))
 }
 
-if (!app.requestSingleInstanceLock()) {
+// Wayland has no always-on-top; ozone is picked before this script runs, so appendSwitch is too late.
+const needsX11 =
+  process.platform === 'linux' && app.isPackaged && app.commandLine.getSwitchValue('ozone-platform') === 'wayland'
+
+if (needsX11) {
+  app.relaunch({ execPath: process.env.APPIMAGE, args: [...process.argv.slice(1), '--ozone-platform=x11'] })
+  app.exit(0)
+} else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.whenReady().then(boot)
@@ -34,6 +41,26 @@ if (!app.requestSingleInstanceLock()) {
 
 let win: BrowserWindow | null = null
 let quitting = false
+let askingClose = false
+
+async function askClose(): Promise<void> {
+  if (!win || askingClose) return
+  askingClose = true
+  const { response } = await dialog
+    .showMessageBox(win, {
+      type: 'question',
+      title: 'Fechar',
+      message: 'Esconder na bandeja ou fechar o PairLAN?',
+      detail: 'Na bandeja ele continua conectado e recebendo mensagens.',
+      buttons: ['Esconder na bandeja', 'Fechar o PairLAN', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true
+    })
+    .finally(() => (askingClose = false))
+  if (response === 0) win?.hide()
+  else if (response === 1) app.quit()
+}
 
 function send(channel: string, payload?: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
@@ -61,11 +88,14 @@ function createWindow(alwaysOnTop: boolean): BrowserWindow {
   w.setContentProtection(true)
   w.webContents.on('will-navigate', (e) => e.preventDefault())
   w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  w.once('ready-to-show', () => w.show())
+  w.once('ready-to-show', () => {
+    w.show()
+    w.setAlwaysOnTop(alwaysOnTop)
+  })
   w.on('close', (e) => {
     if (quitting) return
     e.preventDefault()
-    w.hide()
+    void askClose()
   })
   if (process.env.ELECTRON_RENDERER_URL) {
     w.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -177,15 +207,30 @@ async function boot(): Promise<void> {
   discovery.on('peer', (peer) => {
     if (shouldInitiate(self().id, peer.id)) link.connectTo(peer.address, peer.linkPort)
   })
+  const dialManualPeer = () => {
+    const manual = parseAddress(config.get().manualPeer, runtime.linkPort)
+    if (manual) link.connectTo(manual.address, manual.port)
+  }
   discovery.start()
+  dialManualPeer()
 
-  const manual = parseAddress(config.get().manualPeer, runtime.linkPort)
-  if (manual) link.connectTo(manual.address, manual.port)
+  ipcMain.on('discovery:set', (_e, searching: unknown) => {
+    if (typeof searching !== 'boolean') return
+    if (searching) {
+      discovery.start()
+      dialManualPeer()
+    } else {
+      discovery.stop()
+      if (!link.isConnected()) link.cancelDial()
+    }
+    send('discovery:state', discovery.isRunning())
+  })
 
   ipcMain.handle('state:get', () => ({
     self: self(),
     config: config.get(),
     status: link.status(),
+    searching: discovery.isRunning(),
     history: history.load()
   }))
 
@@ -250,7 +295,7 @@ async function boot(): Promise<void> {
   ipcMain.on('sysaudio:stop', () => systemAudio.stop())
 
   ipcMain.on('window:minimize', () => win?.minimize())
-  ipcMain.on('window:hide', () => win?.hide())
+  ipcMain.on('window:close', () => void askClose())
 
   ipcMain.handle('peer:connect', (_e, input: unknown) => {
     const target = typeof input === 'string' ? parseAddress(input, runtime.linkPort) : null
