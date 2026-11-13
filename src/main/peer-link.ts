@@ -64,6 +64,11 @@ export class PeerLink extends EventEmitter<Events> {
     })
   }
 
+  listeningPort(): number {
+    const addr = this.server?.address()
+    return typeof addr === 'object' && addr ? addr.port : this.port
+  }
+
   status(): LinkStatus {
     if (this.peer && this.socket) return { state: 'connected', peer: this.peer, address: this.address }
     if (this.pending || this.socket || this.retryTimer) return { state: 'connecting', peer: null, address: null }
