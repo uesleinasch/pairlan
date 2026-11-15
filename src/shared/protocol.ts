@@ -54,6 +54,9 @@ export type WireMessage =
   | { t: 'control-state'; allowed: boolean }
   | { t: 'control-request' }
   | { t: 'input'; input: RemoteInput }
+  | { t: 'p2p-hello'; addr: string }
+  | { t: 'p2p-start' }
+  | { t: 'p2p-stop' }
 
 export type RemoteInput =
   | { kind: 'move'; x: number; y: number }
@@ -64,6 +67,8 @@ export type RemoteInput =
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
 const isString = (v: unknown): v is string => typeof v === 'string'
+
+export const isP2pAddress = (v: unknown): v is string => typeof v === 'string' && /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(v)
 
 export const isUnit = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1
 
@@ -174,6 +179,12 @@ export function parseWire(raw: string): WireMessage | null {
       const input = parseInput(data.input)
       return input ? { t: 'input', input } : null
     }
+    case 'p2p-hello':
+      return isP2pAddress(data.addr) ? { t: 'p2p-hello', addr: data.addr } : null
+    case 'p2p-start':
+      return { t: 'p2p-start' }
+    case 'p2p-stop':
+      return { t: 'p2p-stop' }
     default:
       return null
   }

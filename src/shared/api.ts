@@ -11,7 +11,18 @@ export type AppConfig = {
   terminalMode: boolean
   terminalPath: string
   terminalBranch: string
+  wifiDirectPeer: string
 }
+
+export type WifiDirectStatus = {
+  state: 'unsupported' | 'off' | 'connecting' | 'on' | 'error'
+  self: string | null
+  peer: string | null
+  ip: string | null
+  error: string | null
+}
+
+export type WifiDirectResult = { ok: true } | { ok: false; error: string }
 
 export type LinkStatus =
   | { state: 'idle' | 'connecting'; peer: null; address: null }
@@ -23,6 +34,7 @@ export type InitialState = {
   status: LinkStatus
   searching: boolean
   history: ChatMessage[]
+  wifiDirect: WifiDirectStatus
 }
 
 export type Unsubscribe = () => void
@@ -74,4 +86,7 @@ export type PairlanApi = {
   onPeerLiveAudio(cb: (liveAudio: boolean) => void): Unsubscribe
   startSystemAudio(): Promise<SystemAudioResult>
   stopSystemAudio(): void
+  startWifiDirect(peer?: string): Promise<WifiDirectResult>
+  stopWifiDirect(): void
+  onWifiDirect(cb: (status: WifiDirectStatus) => void): Unsubscribe
 }
