@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import type { AppConfig } from '../../../shared/api'
+import type { AppConfig, WifiDirectStatus } from '../../../shared/api'
+import { canSwitchToWifi, wifiSummary } from '../wifi'
+
+const api = window.pairlan
 
 type Props = {
   config: AppConfig
@@ -7,6 +10,8 @@ type Props = {
   onChange: (patch: Partial<AppConfig>) => void
   onConnect: (address: string) => Promise<boolean>
   onClearHistory: () => Promise<void>
+  wifi: WifiDirectStatus
+  connected: boolean
 }
 
 const MIN_OPACITY = 0.3
@@ -16,13 +21,15 @@ const bar = (value: number) => {
   return `[${'█'.repeat(filled)}${'░'.repeat(10 - filled)}] ${Math.round(value * 100)}%`
 }
 
-export function TermConfig({ config, onClose, onChange, onConnect, onClearHistory }: Props) {
+export function TermConfig({ config, onClose, onChange, onConnect, onClearHistory, wifi, connected }: Props) {
   const [name, setName] = useState(config.name)
   const [path, setPath] = useState(config.terminalPath)
   const [branch, setBranch] = useState(config.terminalBranch)
   const [address, setAddress] = useState(config.manualPeer)
   const [addressError, setAddressError] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
+  const [p2pAddress, setP2pAddress] = useState(config.wifiDirectPeer)
+  const [p2pError, setP2pError] = useState('')
   const box = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,6 +46,13 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
     setAddressError(ok ? '' : 'ip inválido ou fora da rede local. ex.: 192.168.0.10')
     if (ok) onClose()
   }
+
+  const startWifi = async (peer?: string) => {
+    const result = await api.startWifiDirect(peer)
+    setP2pError(result.ok ? '' : result.error.toLowerCase())
+  }
+
+  const wifiBusy = wifi.state === 'on' || wifi.state === 'connecting'
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -77,6 +91,38 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
           />
         </label>
         {addressError && <p className="term-err">{addressError}</p>}
+
+        <p className="term-dim">─ wi-fi direct</p>
+        <p className={wifi.state === 'error' ? 'term-err' : undefined} role="status">
+          {wifiSummary(wifi).toLowerCase()}
+        </p>
+        {wifiBusy && (
+          <button type="button" className="term-opt" onClick={() => api.stopWifiDirect()}>
+            [{wifi.state === 'on' ? 'desligar wi-fi direct' : 'cancelar'}]
+          </button>
+        )}
+        {!wifiBusy && wifi.state !== 'unsupported' && (
+          <>
+            {canSwitchToWifi(wifi, connected) && (
+              <button type="button" className="term-opt" onClick={() => void startWifi()}>
+                [mudar para wi-fi direct]
+              </button>
+            )}
+            <label className="term-field">
+              <span>mac do par</span>
+              <input
+                value={p2pAddress}
+                placeholder="fc:b3:aa:bc:44:ff"
+                onChange={(e) => setP2pAddress(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void startWifi(p2pAddress)
+                }}
+              />
+            </label>
+            <p className="term-dim">    sem rede em comum: o seu é {wifi.self}. enter nos dois pcs juntos.</p>
+            {p2pError && <p className="term-err">{p2pError}</p>}
+          </>
+        )}
 
         <p className="term-dim">─ janela</p>
         <div className="term-field">

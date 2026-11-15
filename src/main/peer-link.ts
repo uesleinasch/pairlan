@@ -21,6 +21,15 @@ export function isPrivateAddress(raw: string | undefined): boolean {
   )
 }
 
+const bareAddress = (a: string): string => (a.startsWith('::ffff:') ? a.slice(7) : a).toLowerCase()
+
+export function iceMatchesPeer(candidate: string, peerAddress: string | null): boolean {
+  if (!peerAddress) return true
+  const address = candidate.split(' ')[4]
+  if (!address || !isIP(address)) return true
+  return bareAddress(address) === bareAddress(peerAddress)
+}
+
 const HEARTBEAT_MS = 5000
 const MAX_BACKOFF_MS = 10000
 
@@ -89,6 +98,19 @@ export class PeerLink extends EventEmitter<Events> {
     if (this.socket || this.pending) return
     this.clearRetry()
     this.dial()
+  }
+
+  moveTo(target: Target | null, keep: string | null): void {
+    this.target = target
+    this.attempts = 0
+    this.clearRetry()
+    const pending = this.pending
+    this.pending = null
+    pending?.terminate()
+    const stays = this.socket && keep && this.address && bareAddress(this.address) === bareAddress(keep)
+    if (this.socket && !stays) this.socket.terminate()
+    else if (!this.socket && target) this.dial()
+    this.emitStatus()
   }
 
   cancelDial(): void {

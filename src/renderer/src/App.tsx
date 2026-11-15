@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppConfig, LinkStatus, TransferProgress } from '../../shared/api'
+import type { AppConfig, LinkStatus, TransferProgress, WifiDirectStatus } from '../../shared/api'
 import type { ChatMessage, PeerInfo } from '../../shared/protocol'
 import { Conversation } from './Conversation'
 import { MediaControls } from './MediaControls'
@@ -27,6 +27,7 @@ export function App() {
   const [controlBusy, setControlBusy] = useState(false)
   const [peerControl, setPeerControl] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [wifi, setWifi] = useState<WifiDirectStatus>({ state: 'unsupported', self: null, peer: null, ip: null, error: null })
   const typingTimer = useRef<number | undefined>(undefined)
   const snackbar = useSnackbar()
 
@@ -45,9 +46,11 @@ export function App() {
       setStatus(s.status)
       setSearching(s.searching)
       setMessages(s.history)
+      setWifi(s.wifiDirect)
     })
     const offs = [
       api.onStatus(setStatus),
+      api.onWifiDirect(setWifi),
       api.onSearching(setSearching),
       api.onControlState(setControlAllowed),
       api.onPeerControl(setPeerControl),
@@ -190,6 +193,7 @@ export function App() {
         onSend={send}
         onAttached={appendMessages}
         onClearHistory={clearHistory}
+        wifi={wifi}
       />
     )
   }
@@ -254,6 +258,8 @@ export function App() {
         onChange={(patch) => void api.setConfig(patch)}
         onConnect={api.connectManual}
         onClearHistory={clearHistory}
+        wifi={wifi}
+        connected={connected}
       />
       <Snackbar item={snackbar.item} onDismiss={snackbar.dismiss} />
     </main>

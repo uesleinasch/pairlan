@@ -1,7 +1,24 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LinkStatus } from '../shared/api'
 import type { WireMessage } from '../shared/protocol'
-import { isPrivateAddress, parseAddress, PeerLink } from './peer-link'
+import { iceMatchesPeer, isPrivateAddress, parseAddress, PeerLink } from './peer-link'
+
+describe('iceMatchesPeer', () => {
+  const host = (ip: string): string => `candidate:1 1 udp 2122260223 ${ip} 37607 typ host generation 0`
+
+  it('keeps only candidates on the address the link uses', () => {
+    expect(iceMatchesPeer(host('10.42.99.1'), '10.42.99.1')).toBe(true)
+    expect(iceMatchesPeer(host('10.42.99.1'), '::ffff:10.42.99.1')).toBe(true)
+    expect(iceMatchesPeer(host('192.168.15.20'), '10.42.99.1')).toBe(false)
+    expect(iceMatchesPeer(host('FE80::1'), 'fe80::1')).toBe(true)
+  })
+
+  it('keeps everything it cannot judge', () => {
+    expect(iceMatchesPeer(host('192.168.15.20'), null)).toBe(true)
+    expect(iceMatchesPeer(host('abc.local'), '10.42.99.1')).toBe(true)
+    expect(iceMatchesPeer('', '10.42.99.1')).toBe(true)
+  })
+})
 
 describe('isPrivateAddress', () => {
   it('accepts LAN and loopback', () => {
@@ -59,6 +76,35 @@ describe('PeerLink', () => {
     await b2.start()
     expect((await aBack).peer?.name).toBe('Bia 2')
   }, 15000)
+
+  it('moveTo drops the old route and dials the new target', async () => {
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    const b = new PeerLink({ id: 'b', name: 'Bia' }, 0)
+    links.push(a, b)
+    await Promise.all([a.start(), b.start()])
+    const bPort = b.listeningPort()
+
+    const viaLoopback = waitFor<LinkStatus>(a, 'status', (s) => s.state === 'connected' && s.address === '127.0.0.1')
+    a.connectTo('127.0.0.1', bPort)
+    await viaLoopback
+
+    const viaOther = waitFor<LinkStatus>(a, 'status', (s) => s.state === 'connected' && s.address === '127.0.0.2')
+    a.moveTo({ address: '127.0.0.2', port: bPort }, '127.0.0.2')
+    expect((await viaOther).peer?.name).toBe('Bia')
+  }, 15000)
+
+  it('moveTo keeps a socket already on the kept address', async () => {
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    const b = new PeerLink({ id: 'b', name: 'Bia' }, 0)
+    links.push(a, b)
+    await Promise.all([a.start(), b.start()])
+    const up = waitFor<LinkStatus>(a, 'status', connected)
+    a.connectTo('127.0.0.1', b.listeningPort())
+    await up
+    a.moveTo(null, '::ffff:127.0.0.1')
+    await new Promise((r) => setTimeout(r, 300))
+    expect(a.status()).toMatchObject({ state: 'connected', address: '127.0.0.1' })
+  })
 
   it('accepts only one peer at a time', async () => {
     const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)

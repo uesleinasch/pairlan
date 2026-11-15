@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { hostname, userInfo } from 'node:os'
 import { join } from 'node:path'
 import type { AppConfig } from '../shared/api'
+import { isP2pAddress } from '../shared/protocol'
 
 export const DISCOVERY_PORT = 47800
 export const LINK_PORT = 47801
@@ -51,7 +52,8 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     liveAudio: raw.liveAudio !== false,
     terminalMode: raw.terminalMode === true,
     terminalPath: cleanText(raw.terminalPath, 60, DEFAULT_TERMINAL_PATH),
-    terminalBranch: cleanText(raw.terminalBranch, 40, DEFAULT_TERMINAL_BRANCH)
+    terminalBranch: cleanText(raw.terminalBranch, 40, DEFAULT_TERMINAL_BRANCH),
+    wifiDirectPeer: isP2pAddress(raw.wifiDirectPeer) ? raw.wifiDirectPeer : ''
   }
 }
 
