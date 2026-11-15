@@ -14,6 +14,12 @@ Chat e compartilhamento de tela para pair programming, 100% em rede local. É fe
   - Quem recebe ajusta o volume e pode silenciar. Se estiver em 🔇, já começa mudo.
   - Quando você fala no walkie, esse áudio abaixa sozinho, para não ouvir o eco da própria voz.
 - Os dois podem compartilhar a tela ao mesmo tempo. O vídeo vai via WebRTC, direto entre as máquinas.
+- Wi-Fi Direct: liga as duas máquinas direto, sem passar pela rede. O Wi-Fi da empresa continua conectado.
+  - Com o par já conectado, clique em **Mudar para Wi-Fi Direct** em Configurações (ou `/direct` no modo terminal). Os dois lados trocam sozinhos.
+  - Sem rede em comum: cada um digita o endereço do outro (aparece em Configurações) e os dois clicam juntos (ou `/direct <endereço>`).
+  - O app lembra o par e religa sozinho ao abrir. Desliga pelo mesmo botão ou com `/direct off`.
+  - Chat, tela, voz e áudio passam pelo mesmo caminho da conexão.
+  - Precisa de placa Wi-Fi com P2P, do NetworkManager e do `iw`.
 - Laser: quem vê a tela do par liga o laser e aponta. Um ponto vermelho aparece na tela de quem compartilha, e um clique faz um anel.
   - O ponto vai para o monitor que tem o mesmo tamanho da captura. Funciona com monitor inteiro, não com janela.
 - Controle remoto: quem compartilha clica em **Permitir controle**. O GNOME pede permissão e mostra o ícone de compartilhamento na barra do topo.

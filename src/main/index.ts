@@ -14,17 +14,18 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import type { AppConfig } from '../shared/api'
-import { parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
+import { isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
 import { ConfigStore, DISCOVERY_PORT, runtimeOptions, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { LaserOverlay } from './laser-overlay'
-import { parseAddress, PeerLink } from './peer-link'
+import { iceMatchesPeer, parseAddress, PeerLink } from './peer-link'
 import { RemoteControl } from './remote-control'
 import { PortalCancelled, RemoteDesktop } from './remote-desktop'
 import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
+import { p2pAddresses, WifiDirect } from './wifi-direct'
 
 const runtime = runtimeOptions(process.env)
 if (runtime.profile) {
@@ -33,6 +34,9 @@ if (runtime.profile) {
 
 // Wayland has no always-on-top; ozone is picked before this script runs, so appendSwitch is too late.
 // app.relaunch breaks inside an AppImage (the mount goes away), so this process stays alive as a supervisor.
+// iceMatchesPeer compares candidate IPs; mDNS (.local) host candidates would bypass it.
+app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns')
+
 const needsX11 =
   process.platform === 'linux' && app.isPackaged && app.commandLine.getSwitchValue('ozone-platform') === 'wayland'
 
@@ -192,6 +196,8 @@ async function boot(): Promise<void> {
   }
 
   const link = new PeerLink(self(), runtime.linkPort)
+  const wifi = new WifiDirect()
+  let peerP2p: string | null = null
   const attachments = new AttachmentService({
     link,
     history,
@@ -223,8 +229,11 @@ async function boot(): Promise<void> {
   portal.on('closed', () => setControl(false))
 
   link.on('status', (status) => {
-    if (status.state === 'connected') link.send({ t: 'presence', liveAudio: config.get().liveAudio })
-    else {
+    if (status.state === 'connected') {
+      link.send({ t: 'presence', liveAudio: config.get().liveAudio })
+      const own = wifi.status().self
+      if (own) link.send({ t: 'p2p-hello', addr: own })
+    } else {
       attachments.abortIncoming()
       sharingScreen = false
       laser.close()
@@ -245,6 +254,7 @@ async function boot(): Promise<void> {
         send('chat:typing')
         break
       case 'signal':
+        if (m.payload.kind === 'ice' && !iceMatchesPeer(m.payload.candidate.candidate, link.status().address)) break
         send('rtc:signal', m.payload)
         break
       case 'share-state':
@@ -268,6 +278,20 @@ async function boot(): Promise<void> {
       case 'input':
         if (controlAllowed) remote.apply(m.input)
         break
+      case 'p2p-hello':
+        peerP2p = m.addr
+        wifi.knowPeer(m.addr)
+        if (config.get().wifiDirectPeer === m.addr && !wifi.isActive()) void wifi.start(m.addr)
+        break
+      case 'p2p-start':
+        if (!peerP2p) break
+        applyConfig({ wifiDirectPeer: peerP2p })
+        void wifi.start(peerP2p)
+        break
+      case 'p2p-stop':
+        applyConfig({ wifiDirectPeer: '' })
+        void wifi.stop()
+        break
     }
   })
   await link.start().catch((err) => console.error('[link] porta ocupada?', err.message))
@@ -277,14 +301,61 @@ async function boot(): Promise<void> {
     beacon: () => ({ app: 'pairlan', v: PROTOCOL_VERSION, ...self(), linkPort: runtime.linkPort })
   })
   discovery.on('peer', (peer) => {
+    if (wifi.status().state === 'on') return
     if (shouldInitiate(self().id, peer.id)) link.connectTo(peer.address, peer.linkPort)
   })
   const dialManualPeer = () => {
+    if (wifi.status().state === 'on') return
     const manual = parseAddress(config.get().manualPeer, runtime.linkPort)
     if (manual) link.connectTo(manual.address, manual.port)
   }
   discovery.start()
   dialManualPeer()
+
+  let wifiOn = false
+  wifi.on('status', (s) => {
+    send('wifi:status', s)
+    const on = s.state === 'on'
+    if (on === wifiOn) return
+    wifiOn = on
+    if (on && s.self && s.peer) {
+      const { other, dials } = p2pAddresses(s.self, s.peer)
+      link.moveTo(dials ? { address: other, port: runtime.linkPort } : null, other)
+    } else if (!on) {
+      link.moveTo(null, null)
+      dialManualPeer()
+    }
+  })
+  wifi.on('dropped', (peer) => {
+    setTimeout(() => {
+      if (config.get().wifiDirectPeer === peer && !wifi.isActive()) void wifi.start(peer)
+    }, 3000)
+  })
+  void wifi.init().then(() => {
+    const own = wifi.status().self
+    if (own) link.send({ t: 'p2p-hello', addr: own })
+    const remembered = config.get().wifiDirectPeer
+    if (remembered) void wifi.start(remembered)
+  })
+
+  ipcMain.handle('wifi:start', (_e, input: unknown) => {
+    const typed = typeof input === 'string' ? input.trim().toLowerCase() : ''
+    const target = typed || peerP2p
+    if (wifi.status().state === 'unsupported') return { ok: false, error: 'Esta placa Wi-Fi não tem Wi-Fi Direct.' }
+    if (!target) return { ok: false, error: 'Conecte ao par primeiro ou digite o endereço dele.' }
+    if (!isP2pAddress(target)) return { ok: false, error: 'Endereço inválido. Ex.: fc:b3:aa:bc:44:ff' }
+    if (target === wifi.status().self) return { ok: false, error: 'Esse é o endereço deste PC. Use o do par.' }
+    if (link.isConnected() && target === peerP2p) link.send({ t: 'p2p-start' })
+    applyConfig({ wifiDirectPeer: target })
+    void wifi.start(target)
+    return { ok: true }
+  })
+
+  ipcMain.on('wifi:stop', () => {
+    link.send({ t: 'p2p-stop' })
+    applyConfig({ wifiDirectPeer: '' })
+    void wifi.stop()
+  })
 
   ipcMain.on('discovery:set', (_e, searching: unknown) => {
     if (typeof searching !== 'boolean') return
@@ -303,7 +374,8 @@ async function boot(): Promise<void> {
     config: config.get(),
     status: link.status(),
     searching: discovery.isRunning(),
-    history: history.load()
+    history: history.load(),
+    wifiDirect: wifi.status()
   }))
 
   ipcMain.handle('chat:send', (_e, text: unknown) => {
@@ -425,6 +497,7 @@ async function boot(): Promise<void> {
     setControl(false)
     systemAudio.stop()
     discovery.stop()
+    wifi.shutdown()
     void link.stop()
   })
   app.on('second-instance', () => win?.show())

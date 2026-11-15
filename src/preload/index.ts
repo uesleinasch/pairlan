@@ -44,7 +44,10 @@ const api: PairlanApi = {
   onTransfer: (cb) => listen('file:progress', cb),
   onPeerLiveAudio: (cb) => listen('peer:live-audio', cb),
   startSystemAudio: () => ipcRenderer.invoke('sysaudio:start'),
-  stopSystemAudio: () => ipcRenderer.send('sysaudio:stop')
+  stopSystemAudio: () => ipcRenderer.send('sysaudio:stop'),
+  startWifiDirect: (peer) => ipcRenderer.invoke('wifi:start', peer),
+  stopWifiDirect: () => ipcRenderer.send('wifi:stop'),
+  onWifiDirect: (cb) => listen('wifi:status', cb)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)

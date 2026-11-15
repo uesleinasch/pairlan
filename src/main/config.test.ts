@@ -67,3 +67,11 @@ describe('terminal mode', () => {
     expect(normalizeConfig({ terminalPath: 42 as never }).terminalPath).toBe('~/Code/api')
   })
 })
+
+describe('wifiDirectPeer', () => {
+  it('keeps only a valid P2P address', () => {
+    expect(normalizeConfig({}).wifiDirectPeer).toBe('')
+    expect(normalizeConfig({ wifiDirectPeer: 'fc:b3:aa:bc:44:ff' }).wifiDirectPeer).toBe('fc:b3:aa:bc:44:ff')
+    expect(normalizeConfig({ wifiDirectPeer: 'nope' }).wifiDirectPeer).toBe('')
+  })
+})

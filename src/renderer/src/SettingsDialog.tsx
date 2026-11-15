@@ -1,5 +1,8 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
-import type { AppConfig } from '../../shared/api'
+import type { AppConfig, WifiDirectStatus } from '../../shared/api'
+import { canSwitchToWifi, wifiSummary } from './wifi'
+
+const api = window.pairlan
 
 type Props = {
   open: boolean
@@ -8,6 +11,8 @@ type Props = {
   onChange: (patch: Partial<AppConfig>) => void
   onConnect: (address: string) => Promise<boolean>
   onClearHistory: () => Promise<void>
+  wifi: WifiDirectStatus
+  connected: boolean
 }
 
 const valueOf = (e: Event) => (e.target as HTMLInputElement).value
@@ -21,11 +26,13 @@ const SHORTCUTS: [string, string][] = [
   ['Esc', 'Fechar esta janela']
 ]
 
-export function SettingsDialog({ open, config, onClose, onChange, onConnect, onClearHistory }: Props) {
+export function SettingsDialog({ open, config, onClose, onChange, onConnect, onClearHistory, wifi, connected }: Props) {
   const [name, setName] = useState(config.name)
   const [address, setAddress] = useState(config.manualPeer)
   const [addressError, setAddressError] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
+  const [p2pAddress, setP2pAddress] = useState(config.wifiDirectPeer)
+  const [p2pError, setP2pError] = useState('')
   const opacity = Math.round(config.opacity * 100)
 
   useEffect(() => {
@@ -34,7 +41,16 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
     setAddress(config.manualPeer)
     setAddressError('')
     setConfirmClear(false)
-  }, [open, config.name, config.manualPeer])
+    setP2pAddress(config.wifiDirectPeer)
+    setP2pError('')
+  }, [open, config.name, config.manualPeer, config.wifiDirectPeer])
+
+  const startWifi = async (peer?: string) => {
+    const result = await api.startWifiDirect(peer)
+    setP2pError(result.ok ? '' : result.error)
+  }
+
+  const wifiBusy = wifi.state === 'on' || wifi.state === 'connecting'
 
   const connect = async () => {
     const ok = await onConnect(address)
@@ -74,6 +90,43 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
             />
             <md-filled-tonal-button onClick={() => void connect()}>Conectar</md-filled-tonal-button>
           </div>
+        </section>
+
+        <section>
+          <h2 className="type-title-small">Wi-Fi Direct</h2>
+          <p className="settings-note type-body-small" role="status">
+            {wifiSummary(wifi)}
+          </p>
+          {wifiBusy && (
+            <md-filled-tonal-button onClick={() => api.stopWifiDirect()}>
+              {wifi.state === 'on' ? 'Desligar Wi-Fi Direct' : 'Cancelar'}
+            </md-filled-tonal-button>
+          )}
+          {!wifiBusy && wifi.state !== 'unsupported' && (
+            <>
+              {canSwitchToWifi(wifi, connected) && (
+                <md-filled-button onClick={() => void startWifi()}>
+                  <md-icon slot="icon">wifi_tethering</md-icon>
+                  Mudar para Wi-Fi Direct
+                </md-filled-button>
+              )}
+              <div className="settings-row">
+                <md-outlined-text-field
+                  label="Endereço do par"
+                  placeholder="fc:b3:aa:bc:44:ff"
+                  value={p2pAddress}
+                  supportingText={`Sem rede em comum: o seu é ${wifi.self}. Os dois clicam juntos.`}
+                  error={Boolean(p2pError)}
+                  errorText={p2pError}
+                  oninput={(e: Event) => setP2pAddress(valueOf(e))}
+                  onKeyDown={(e: KeyboardEvent) => {
+                    if (e.key === 'Enter') void startWifi(p2pAddress)
+                  }}
+                />
+                <md-filled-tonal-button onClick={() => void startWifi(p2pAddress)}>Conectar</md-filled-tonal-button>
+              </div>
+            </>
+          )}
         </section>
 
         <section>

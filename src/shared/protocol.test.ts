@@ -27,7 +27,10 @@ describe('parseWire', () => {
       { t: 'input', input: { kind: 'move', x: 0, y: 0.5 } },
       { t: 'input', input: { kind: 'button', button: 2, down: true } },
       { t: 'input', input: { kind: 'scroll', dx: 0, dy: -3 } },
-      { t: 'input', input: { kind: 'key', code: 'KeyA', down: false } }
+      { t: 'input', input: { kind: 'key', code: 'KeyA', down: false } },
+      { t: 'p2p-hello', addr: 'fc:b3:aa:bc:44:ff' },
+      { t: 'p2p-start' },
+      { t: 'p2p-stop' }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
@@ -36,6 +39,8 @@ describe('parseWire', () => {
     expect(parseWire('not json')).toBeNull()
     expect(parseWire('null')).toBeNull()
     expect(parseWire('{"t":"nope"}')).toBeNull()
+    expect(parseWire('{"t":"p2p-hello","addr":"FC:B3:AA:BC:44:FF"}')).toBeNull()
+    expect(parseWire('{"t":"p2p-hello","addr":"fc:b3:aa:bc:44"}')).toBeNull()
     expect(parseWire('{"t":"hello","v":1,"peer":{"id":"","name":"x"}}')).toBeNull()
     expect(parseWire('{"t":"chat","msg":{"id":"1","text":"x"}}')).toBeNull()
     expect(parseWire('{"t":"signal","payload":{"role":"boss","kind":"stop"}}')).toBeNull()

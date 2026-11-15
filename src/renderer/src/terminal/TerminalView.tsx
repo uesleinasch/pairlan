@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
-import type { AppConfig, LinkStatus, TransferProgress } from '../../../shared/api'
+import type { AppConfig, LinkStatus, TransferProgress, WifiDirectStatus } from '../../../shared/api'
 import type { ChatMessage, PeerInfo } from '../../../shared/protocol'
 import { pastedFiles, sendFiles } from '../files'
 import { formatBytes } from '../format'
@@ -43,6 +43,7 @@ type Props = {
   onSend: (text: string) => Promise<boolean>
   onAttached: (msgs: ChatMessage[]) => void
   onClearHistory: () => Promise<void>
+  wifi: WifiDirectStatus
 }
 
 const progressBar = (done: number, total: number) => {
@@ -145,6 +146,19 @@ export function TerminalView(p: Props) {
         if (!arg) return push('err', 'uso: /conectar 192.168.0.12')
         if (await api.connectManual(arg)) return push('out', `conectando a ${arg}…`)
         return push('err', 'pairlan: ip inválido ou fora da rede local (10.x, 172.16-31.x, 192.168.x)')
+      case 'direct': {
+        if (p.wifi.state === 'unsupported') return push('err', 'pairlan: esta placa wi-fi não tem wi-fi direct')
+        if (arg === 'off' || (!arg && (p.wifi.state === 'on' || p.wifi.state === 'connecting'))) {
+          api.stopWifiDirect()
+          return push('out', 'wi-fi direct desligado. voltando para a rede normal…')
+        }
+        if (!arg && !(connected && p.wifi.peer)) {
+          return push('err', `uso: /direct mac-do-par   (o seu é ${p.wifi.self}; o par roda /direct ${p.wifi.self} junto)`)
+        }
+        const result = await api.startWifiDirect(arg || undefined)
+        if (!result.ok) return push('err', `pairlan: ${result.error.toLowerCase()}`)
+        return push('out', arg ? `ligando wi-fi direct com ${arg}… rode /direct ${p.wifi.self} no par agora.` : 'mudando para wi-fi direct… o par liga junto.')
+      }
       case 'config':
         return setConfigOpen(true)
       case 'tema':
@@ -372,6 +386,8 @@ export function TerminalView(p: Props) {
                 setLocal([])
                 push('out', 'histórico apagado.')
               }}
+              wifi={p.wifi}
+              connected={connected}
             />
           )}
         </section>
@@ -385,6 +401,8 @@ export function TerminalView(p: Props) {
             {seg('tela', p.share.sharing, () => void run('tela', ''), '/tela — compartilhar minha tela')}
             {seg('audio', p.systemAudio.sharing, () => void run('audio', ''), '/audio — transmitir o áudio do PC', p.systemAudio.starting)}
             {seg('ouvir', p.config.liveAudio, () => void run('ouvir', ''), '/ouvir — voz do par toca na hora')}
+            {p.wifi.state !== 'unsupported' &&
+              seg('direct', p.wifi.state === 'on', () => void run('direct', ''), '/direct — wi-fi direct', p.wifi.state === 'connecting')}
             {p.share.sharing && seg('controle', p.controlAllowed, p.onToggleControl, '/controle — liberar meu mouse e teclado', p.controlBusy)}
           </>
         ) : (
