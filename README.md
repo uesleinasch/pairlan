@@ -39,6 +39,7 @@ Chat e compartilhamento de tela para pair programming. É feito para duas pessoa
   - A notificação de mensagem nova vira "Terminal — Comando concluído".
   - Liga em Configurações, no menu da bandeja ou com `/tema` (que também desliga).
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo". Notificação de mensagem nova só aparece com a janela minimizada ou na bandeja (dá para desligar).
+- Som ao receber mensagem quando a janela não está em foco (ligado por padrão). Escolha um som do sistema, um bipe ou seu próprio mp3/ogg/wav em Configurações → Som.
 
 ## Interface
 

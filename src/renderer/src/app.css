@@ -476,7 +476,8 @@
   color: var(--md-sys-color-primary);
 }
 
-.settings-content md-outlined-text-field {
+.settings-content md-outlined-text-field,
+.settings-content md-outlined-select {
   width: 100%;
 }
 
@@ -493,6 +494,11 @@
 .settings-note {
   margin: 0 0 8px;
   color: var(--md-sys-color-on-surface-variant);
+}
+
+.settings-error {
+  margin: 0 0 8px;
+  color: var(--md-sys-color-error);
 }
 
 md-filled-button.danger {

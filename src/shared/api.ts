@@ -15,7 +15,12 @@ export type AppConfig = {
   relayUrl: string
   internetUser: string
   internetPeer: InternetContact | null
+  notifySound: boolean
+  sound: string
+  soundCustomName: string
 }
+
+export type SoundOption = { id: string; label: string }
 
 export type InternetContact = { username: string; publicKey: string }
 
@@ -119,4 +124,8 @@ export type PairlanApi = {
   removeInternetPeer(): void
   onInternet(cb: (status: InternetStatus) => void): Unsubscribe
   onIceServers(cb: (servers: IceServer[]) => void): Unsubscribe
+  listSounds(): Promise<SoundOption[]>
+  soundData(): Promise<string | null>
+  pickSound(): Promise<ActionResult>
+  onPlaySound(cb: () => void): Unsubscribe
 }

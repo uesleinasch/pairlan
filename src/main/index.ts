@@ -13,7 +13,7 @@ import {
   shell,
   type MenuItemConstructorOptions
 } from 'electron'
-import type { ActionResult, AppConfig, InternetStatus } from '../shared/api'
+import type { ActionResult, AppConfig, InternetStatus, SoundOption } from '../shared/api'
 import { isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
 import { normalizeUsername, type RelayIceServer } from '../shared/relay'
@@ -25,6 +25,7 @@ import { LaserOverlay } from './laser-overlay'
 import { iceMatchesPeer, parseAddress, PeerLink } from './peer-link'
 import { lookupUser, registerUser, RelayDialer, releaseUser } from './relay-link'
 import { RemoteControl } from './remote-control'
+import { CUSTOM_SOUND_EXTS, importCustomSound, listSystemSounds, resolveSound, soundDataUrl } from './sounds'
 import { PortalCancelled, RemoteDesktop } from './remote-desktop'
 import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
@@ -181,9 +182,18 @@ async function boot(): Promise<void> {
   const tray = new AppTray({ toggleWindow, quit: () => app.quit(), extraItems: trayItems })
   tray.setTerminal(config.get().terminalMode)
 
+  let lastSound = 0
+  const playSound = () => {
+    const now = Date.now()
+    if (!config.get().notifySound || now - lastSound < 1500) return
+    lastSound = now
+    send('sound:play')
+  }
+
   const notifyIncoming = (msg: ChatMessage) => {
     if (win?.isVisible() && win.isFocused()) return
     tray.addUnread()
+    playSound()
     const minimized = !win || !win.isVisible() || win.isMinimized()
     if (!minimized || !config.get().notifyMinimized || !Notification.isSupported()) return
     const notification = config.get().terminalMode
@@ -545,6 +555,34 @@ async function boot(): Promise<void> {
   })
 
   ipcMain.handle('config:set', (_e, patch: Partial<AppConfig>) => applyConfig(patch ?? {}))
+
+  const soundsDir = join(userData, 'sounds')
+  ipcMain.handle('sound:list', (): SoundOption[] => {
+    const custom = config.get().soundCustomName
+    return [
+      { id: '', label: 'Padrão' },
+      { id: 'beep', label: 'Bipe' },
+      ...listSystemSounds(),
+      ...(custom ? [{ id: 'custom', label: `Meu som: ${custom}` }] : [])
+    ]
+  })
+  ipcMain.handle('sound:data', () => {
+    const c = config.get()
+    return soundDataUrl(resolveSound(c.sound, c.soundCustomName, soundsDir))
+  })
+  ipcMain.handle('sound:pick', async (): Promise<ActionResult> => {
+    if (!win) return { ok: false, error: 'Janela fechada.' }
+    const picked = await dialog.showOpenDialog(win, {
+      title: 'Escolher som',
+      properties: ['openFile'],
+      filters: [{ name: 'Áudio', extensions: CUSTOM_SOUND_EXTS }]
+    })
+    if (picked.canceled || !picked.filePaths[0]) return { ok: true }
+    const result = importCustomSound(picked.filePaths[0], soundsDir)
+    if (!result.ok) return result
+    applyConfig({ sound: 'custom', soundCustomName: result.name })
+    return { ok: true }
+  })
 
   ipcMain.handle('file:pick', async () => {
     if (!win || !link.isConnected()) return []
