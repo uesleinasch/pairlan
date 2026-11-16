@@ -13,7 +13,7 @@ type Props = {
   onCopy: (note: Note) => void
 }
 
-function Chip({ label, level, selected, onClick }: { label: string; level?: HitLevel; selected: boolean; onClick: () => void }) {
+function Chip({ label, name, level, selected, onClick }: { label: string; name?: string; level?: HitLevel; selected: boolean; onClick: () => void }) {
   const ref = useRef<HTMLElement & { selected: boolean }>(null)
   useLayoutEffect(() => {
     if (ref.current) ref.current.selected = selected
@@ -22,6 +22,8 @@ function Chip({ label, level, selected, onClick }: { label: string; level?: HitL
     <md-filter-chip
       ref={ref}
       label={label}
+      aria-label={name}
+      title={name}
       onClick={() => {
         if (ref.current) ref.current.selected = selected
         onClick()
@@ -198,7 +200,7 @@ export function NotesView({ notes, onBack, ...card }: Props) {
         <md-chip-set aria-label="Filtrar por hit">
           <Chip label={`Todas ${total}`} selected={filter === 'all'} onClick={() => setFilter('all')} />
           {HIT_LEVELS.map((l) => (
-            <Chip key={l} label={`${HIT_LABEL[l]} ${counts[l]}`} level={l} selected={filter === l} onClick={() => setFilter(filter === l ? 'all' : l)} />
+            <Chip key={l} label={String(counts[l])} name={`${HIT_LABEL[l]}: ${counts[l]}`} level={l} selected={filter === l} onClick={() => setFilter(filter === l ? 'all' : l)} />
           ))}
         </md-chip-set>
       </div>

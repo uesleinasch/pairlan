@@ -790,7 +790,6 @@ kbd {
   height: 10px;
   margin-left: 6px;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
   vertical-align: middle;
 }
 
@@ -830,7 +829,6 @@ kbd {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
 }
 
 .hit-dot.none > span {
