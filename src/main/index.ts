@@ -21,6 +21,7 @@ import { normalizeUsername, type RelayIceServer } from '../shared/relay'
 import { ConfigStore, DISCOVERY_PORT, relayUrlOf, runtimeOptions, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
+import { NoteStore } from './notes'
 import { fingerprint, loadIdentity } from './identity'
 import { LaserOverlay } from './laser-overlay'
 import { iceMatchesPeer, parseAddress, PeerLink } from './peer-link'
@@ -128,6 +129,7 @@ async function boot(): Promise<void> {
   const userData = app.getPath('userData')
   const config = new ConfigStore(userData)
   const history = new History(join(userData, 'history.jsonl'))
+  const notes = new NoteStore(join(userData, 'notes.json'))
   const self = (): PeerInfo => ({ id: config.get().id, name: config.get().name })
   const applyLook = (c: AppConfig) => {
     const look = windowLook(c)
@@ -518,6 +520,13 @@ async function boot(): Promise<void> {
   })
 
   ipcMain.handle('history:clear', () => history.clear())
+
+  ipcMain.handle('notes:list', () => notes.list())
+  ipcMain.handle('notes:save', (_e, msg: unknown, hit: unknown) => notes.save(msg, hit ?? null))
+  ipcMain.handle('notes:hit', (_e, id: unknown, hit: unknown) => notes.setHit(id, hit ?? null))
+  ipcMain.handle('notes:comment', (_e, id: unknown, comment: unknown) => notes.setComment(id, comment))
+  ipcMain.handle('notes:remove', (_e, id: unknown) => notes.remove(id))
+  ipcMain.handle('notes:restore', (_e, note: unknown) => notes.restore(note))
 
   ipcMain.on('chat:typing', () => link.send({ t: 'typing' }))
 
