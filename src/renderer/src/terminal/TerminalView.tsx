@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
-import type { AppConfig, LinkStatus, TransferProgress, WifiDirectStatus } from '../../../shared/api'
+import type { AppConfig, InternetStatus, LinkStatus, TransferProgress, WifiDirectStatus } from '../../../shared/api'
+import { normalizeUsername } from '../../../shared/relay'
 import type { ChatMessage, PeerInfo } from '../../../shared/protocol'
 import { pastedFiles, sendFiles } from '../files'
 import { formatBytes } from '../format'
+import { internetSummary } from '../internet'
 import { ScreenView } from '../ScreenView'
 import type { SnackbarAction, SnackbarItem } from '../Snackbar'
 import type { useScreenShare } from '../useScreenShare'
@@ -44,6 +46,7 @@ type Props = {
   onAttached: (msgs: ChatMessage[]) => void
   onClearHistory: () => Promise<void>
   wifi: WifiDirectStatus
+  internet: InternetStatus
 }
 
 const progressBar = (done: number, total: number) => {
@@ -159,6 +162,27 @@ export function TerminalView(p: Props) {
         if (!result.ok) return push('err', `pairlan: ${result.error.toLowerCase()}`)
         return push('out', arg ? `ligando wi-fi direct com ${arg}… rode /direct ${p.wifi.self} no par agora.` : 'mudando para wi-fi direct… o par liga junto.')
       }
+      case 'usuario': {
+        if (!arg) {
+          return push('out', p.internet.me ? `você é @${p.internet.me}. seu código: ${p.internet.myFingerprint}` : 'uso: /usuario seu_nome')
+        }
+        const result = await api.registerInternet(arg)
+        if (!result.ok) return push('err', `pairlan: ${result.error.toLowerCase()}`)
+        return push('out', `registrado como @${normalizeUsername(arg)}. seu código: ${p.internet.myFingerprint}`)
+      }
+      case 'par': {
+        if (arg === 'off') {
+          api.removeInternetPeer()
+          return push('out', 'par da internet removido.')
+        }
+        if (!arg) {
+          if (!p.internet.peer) return push('out', 'uso: /par usuario_do_par')
+          return push('out', `par: @${p.internet.peer} · código ${p.internet.peerFingerprint}\n${internetSummary(p.internet).toLowerCase()}`)
+        }
+        const result = await api.addInternetPeer(arg)
+        if (!result.ok) return push('err', `pairlan: ${result.error.toLowerCase()}`)
+        return push('out', `par @${normalizeUsername(arg)} salvo. o par roda /par ${p.internet.me}. confira o código com /par.`)
+      }
       case 'config':
         return setConfigOpen(true)
       case 'tema':
@@ -273,7 +297,7 @@ export function TerminalView(p: Props) {
 
   const windows = configOpen ? '0:chat 1:config*' : showScreen ? '0:chat 1:tela*' : '0:chat*'
   const right = connected
-    ? `${peerName} ${p.status.address ?? ''}${showScreen ? ' · vendo tela' : ''}`
+    ? `${peerName} ${p.status.state === 'connected' && p.status.via === 'internet' ? 'internet' : (p.status.address ?? '')}${showScreen ? ' · vendo tela' : ''}`
     : p.status.state === 'connecting'
       ? 'conectando'
       : p.searching
@@ -387,6 +411,7 @@ export function TerminalView(p: Props) {
                 push('out', 'histórico apagado.')
               }}
               wifi={p.wifi}
+              internet={p.internet}
               connected={connected}
             />
           )}

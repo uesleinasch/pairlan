@@ -1,10 +1,17 @@
+import type { IceServer } from '../../shared/api'
 import type { IceCandidate, MediaChannel, ShareRole, SignalPayload } from '../../shared/protocol'
 import { stereoOpus } from './sdp'
 
 const MAX_BITRATE = 8_000_000
 
+let iceServers: IceServer[] = []
+
+export const setIceServers = (servers: IceServer[]): void => {
+  iceServers = servers
+}
+
 export class RtcSession {
-  readonly pc = new RTCPeerConnection({ iceServers: [] })
+  readonly pc = new RTCPeerConnection({ iceServers })
   private queue: IceCandidate[] = []
 
   constructor(

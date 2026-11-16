@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import type { AppConfig, WifiDirectStatus } from '../../../shared/api'
+import type { AppConfig, InternetStatus, WifiDirectStatus } from '../../../shared/api'
+import { internetSummary } from '../internet'
 import { canSwitchToWifi, wifiSummary } from '../wifi'
 
 const api = window.pairlan
@@ -11,6 +12,7 @@ type Props = {
   onConnect: (address: string) => Promise<boolean>
   onClearHistory: () => Promise<void>
   wifi: WifiDirectStatus
+  internet: InternetStatus
   connected: boolean
 }
 
@@ -21,7 +23,7 @@ const bar = (value: number) => {
   return `[${'█'.repeat(filled)}${'░'.repeat(10 - filled)}] ${Math.round(value * 100)}%`
 }
 
-export function TermConfig({ config, onClose, onChange, onConnect, onClearHistory, wifi, connected }: Props) {
+export function TermConfig({ config, onClose, onChange, onConnect, onClearHistory, wifi, internet, connected }: Props) {
   const [name, setName] = useState(config.name)
   const [path, setPath] = useState(config.terminalPath)
   const [branch, setBranch] = useState(config.terminalBranch)
@@ -91,6 +93,15 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
           />
         </label>
         {addressError && <p className="term-err">{addressError}</p>}
+
+        <p className="term-dim">─ internet</p>
+        <p className={internet.state === 'error' ? 'term-err' : undefined} role="status">
+          {internetSummary(internet).toLowerCase()}
+        </p>
+        <p className="term-dim">
+          {internet.me ? `seu código: ${internet.myFingerprint}` : 'registre com /usuario seu_nome'}
+          {internet.peer ? ` · código do par: ${internet.peerFingerprint}` : internet.me ? ' · adicione com /par usuario' : ''}
+        </p>
 
         <p className="term-dim">─ wi-fi direct</p>
         <p className={wifi.state === 'error' ? 'term-err' : undefined} role="status">
