@@ -13,14 +13,17 @@ import {
   shell,
   type MenuItemConstructorOptions
 } from 'electron'
-import type { AppConfig } from '../shared/api'
+import type { ActionResult, AppConfig, InternetStatus } from '../shared/api'
 import { isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
-import { ConfigStore, DISCOVERY_PORT, runtimeOptions, windowLook, type WindowLook } from './config'
+import { normalizeUsername, type RelayIceServer } from '../shared/relay'
+import { ConfigStore, DISCOVERY_PORT, relayUrlOf, runtimeOptions, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
+import { fingerprint, loadIdentity } from './identity'
 import { LaserOverlay } from './laser-overlay'
 import { iceMatchesPeer, parseAddress, PeerLink } from './peer-link'
+import { lookupUser, registerUser, RelayDialer, releaseUser } from './relay-link'
 import { RemoteControl } from './remote-control'
 import { PortalCancelled, RemoteDesktop } from './remote-desktop'
 import { SystemAudioSource } from './system-audio'
@@ -147,6 +150,7 @@ async function boot(): Promise<void> {
     link.send({ t: 'presence', liveAudio: next.liveAudio })
     tray.rebuild()
     send('config', next)
+    if ('relayUrl' in patch || 'internetUser' in patch || 'internetPeer' in patch) configureRelay()
     return next
   }
 
@@ -200,6 +204,56 @@ async function boot(): Promise<void> {
     const status = link.status()
     return status.state === 'connected' && status.via === 'lan'
   }
+
+  const identity = loadIdentity(join(userData, 'identity.json'))
+  const relay = new RelayDialer(identity)
+  let relayIce: RelayIceServer[] = []
+  let relayResume: NodeJS.Timeout | null = null
+  const viaInternet = () => {
+    const status = link.status()
+    return status.state === 'connected' && status.via === 'internet'
+  }
+  const internetStatus = (): InternetStatus => {
+    const c = config.get()
+    return {
+      ...relay.status(),
+      relayUrl: relayUrlOf(c),
+      me: c.internetUser,
+      myFingerprint: fingerprint(identity.publicKey),
+      peer: c.internetPeer?.username ?? null,
+      peerFingerprint: c.internetPeer ? fingerprint(c.internetPeer.publicKey) : null
+    }
+  }
+  const iceForRenderer = () => (viaInternet() ? relayIce : [])
+  const configureRelay = () => {
+    const c = config.get()
+    const url = relayUrlOf(c)
+    relay.configure(
+      url && c.internetUser && c.internetPeer
+        ? { url, me: c.internetUser, peer: c.internetPeer.username, peerPublicKey: c.internetPeer.publicKey }
+        : null
+    )
+    send('internet:status', internetStatus())
+  }
+  const syncRelayWithLan = () => {
+    if (onLan()) {
+      if (relayResume) clearTimeout(relayResume)
+      relayResume = null
+      relay.pause()
+      return
+    }
+    if (link.isConnected() || relayResume) return
+    relayResume = setTimeout(() => {
+      relayResume = null
+      if (!link.isConnected()) relay.resume()
+    }, 3000)
+  }
+  relay.on('status', () => send('internet:status', internetStatus()))
+  relay.on('ice', (servers) => {
+    relayIce = servers
+    send('rtc:ice-servers', iceForRenderer())
+  })
+  relay.on('channel', (channel) => link.attach(channel))
   const wifi = new WifiDirect()
   let peerP2p: string | null = null
   const attachments = new AttachmentService({
@@ -244,6 +298,8 @@ async function boot(): Promise<void> {
       setControl(false)
       send('peer:control', false)
     }
+    syncRelayWithLan()
+    send('rtc:ice-servers', iceForRenderer())
     send('link:status', status)
   })
   link.on('message', (m) => {
@@ -315,6 +371,7 @@ async function boot(): Promise<void> {
   }
   discovery.start()
   dialManualPeer()
+  configureRelay()
 
   let wifiOn = false
   wifi.on('status', (s) => {
@@ -379,8 +436,41 @@ async function boot(): Promise<void> {
     status: link.status(),
     searching: discovery.isRunning(),
     history: history.load(),
-    wifiDirect: wifi.status()
+    wifiDirect: wifi.status(),
+    internet: internetStatus(),
+    iceServers: iceForRenderer()
   }))
+
+  const relayForAction = (): string | null => relayUrlOf(config.get()) || null
+  const noRelay: ActionResult = { ok: false, error: 'Informe o endereço do servidor primeiro.' }
+  const badName: ActionResult = { ok: false, error: 'Use 3 a 20 letras minúsculas, números ou _.' }
+
+  ipcMain.handle('internet:register', async (_e, input: unknown): Promise<ActionResult> => {
+    const username = normalizeUsername(input)
+    if (!username) return badName
+    const url = relayForAction()
+    if (!url) return noRelay
+    const previous = config.get().internetUser
+    const result = await registerUser(url, identity, username)
+    if (!result.ok) return result
+    if (previous && previous !== username) void releaseUser(url, identity, previous)
+    applyConfig({ internetUser: username })
+    return result
+  })
+
+  ipcMain.handle('internet:add-peer', async (_e, input: unknown): Promise<ActionResult> => {
+    const username = normalizeUsername(input)
+    if (!username) return badName
+    if (username === config.get().internetUser) return { ok: false, error: 'Esse é o seu usuário. Digite o do seu par.' }
+    const url = relayForAction()
+    if (!url) return noRelay
+    const found = await lookupUser(url, username)
+    if (!found.ok) return found
+    applyConfig({ internetPeer: { username, publicKey: found.publicKey } })
+    return { ok: true }
+  })
+
+  ipcMain.on('internet:remove-peer', () => applyConfig({ internetPeer: null }))
 
   ipcMain.handle('chat:send', (_e, text: unknown) => {
     if (typeof text !== 'string' || !text.trim() || !link.isConnected()) return null
@@ -502,6 +592,7 @@ async function boot(): Promise<void> {
     systemAudio.stop()
     discovery.stop()
     wifi.shutdown()
+    relay.stop()
     void link.stop()
   })
   app.on('second-instance', () => win?.show())

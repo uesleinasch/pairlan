@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { hostname, userInfo } from 'node:os'
 import { join } from 'node:path'
-import type { AppConfig } from '../shared/api'
+import type { AppConfig, InternetContact } from '../shared/api'
 import { isP2pAddress } from '../shared/protocol'
+import { isPublicKey, normalizeRelayUrl, normalizeUsername } from '../shared/relay'
 
 export const DISCOVERY_PORT = 47800
 export const LINK_PORT = 47801
@@ -38,6 +39,17 @@ export type WindowLook = { title: string; icon: string }
 export const windowLook = (c: Pick<AppConfig, 'terminalMode' | 'terminalPath'>): WindowLook =>
   c.terminalMode ? { title: c.terminalPath, icon: 'terminal.png' } : { title: 'Notes', icon: 'icon.png' }
 
+export const DEFAULT_RELAY_URL = normalizeRelayUrl(import.meta.env.MAIN_VITE_RELAY_URL) ?? ''
+
+export const relayUrlOf = (c: Pick<AppConfig, 'relayUrl'>): string => c.relayUrl || DEFAULT_RELAY_URL
+
+function cleanContact(value: unknown): InternetContact | null {
+  if (typeof value !== 'object' || value === null) return null
+  const { username, publicKey } = value as Record<string, unknown>
+  const name = normalizeUsername(username)
+  return name && isPublicKey(publicKey) ? { username: name, publicKey } : null
+}
+
 const cleanText = (value: unknown, max: number, fallback: string): string =>
   typeof value === 'string' && value.trim() ? value.trim().replace(/\s+/g, ' ').slice(0, max) : fallback
 
@@ -53,7 +65,10 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     terminalMode: raw.terminalMode === true,
     terminalPath: cleanText(raw.terminalPath, 60, DEFAULT_TERMINAL_PATH),
     terminalBranch: cleanText(raw.terminalBranch, 40, DEFAULT_TERMINAL_BRANCH),
-    wifiDirectPeer: isP2pAddress(raw.wifiDirectPeer) ? raw.wifiDirectPeer : ''
+    wifiDirectPeer: isP2pAddress(raw.wifiDirectPeer) ? raw.wifiDirectPeer : '',
+    relayUrl: normalizeRelayUrl(raw.relayUrl) ?? '',
+    internetUser: normalizeUsername(raw.internetUser) ?? '',
+    internetPeer: cleanContact(raw.internetPeer)
   }
 }
 

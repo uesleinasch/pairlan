@@ -12,7 +12,28 @@ export type AppConfig = {
   terminalPath: string
   terminalBranch: string
   wifiDirectPeer: string
+  relayUrl: string
+  internetUser: string
+  internetPeer: InternetContact | null
 }
+
+export type InternetContact = { username: string; publicKey: string }
+
+export type InternetState = 'off' | 'connecting' | 'waiting-peer' | 'securing' | 'connected' | 'error'
+
+export type InternetStatus = {
+  state: InternetState
+  error: string | null
+  relayUrl: string
+  me: string
+  myFingerprint: string
+  peer: string | null
+  peerFingerprint: string | null
+}
+
+export type ActionResult = { ok: true } | { ok: false; error: string }
+
+export type IceServer = { urls: string | string[]; username?: string; credential?: string }
 
 export type WifiDirectStatus = {
   state: 'unsupported' | 'off' | 'connecting' | 'on' | 'error'
@@ -37,6 +58,8 @@ export type InitialState = {
   searching: boolean
   history: ChatMessage[]
   wifiDirect: WifiDirectStatus
+  internet: InternetStatus
+  iceServers: IceServer[]
 }
 
 export type Unsubscribe = () => void
@@ -91,4 +114,9 @@ export type PairlanApi = {
   startWifiDirect(peer?: string): Promise<WifiDirectResult>
   stopWifiDirect(): void
   onWifiDirect(cb: (status: WifiDirectStatus) => void): Unsubscribe
+  registerInternet(username: string): Promise<ActionResult>
+  addInternetPeer(username: string): Promise<ActionResult>
+  removeInternetPeer(): void
+  onInternet(cb: (status: InternetStatus) => void): Unsubscribe
+  onIceServers(cb: (servers: IceServer[]) => void): Unsubscribe
 }

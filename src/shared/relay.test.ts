@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { authMessage, isPublicKey, normalizeUsername, parseRelayControl, roomKey } from './relay'
+import { authMessage, isPublicKey, normalizeRelayUrl, normalizeUsername, parseRelayControl, relayEndpoint, roomKey } from './relay'
 
 describe('normalizeUsername', () => {
   it('accepts and normalizes valid names', () => {
@@ -53,5 +53,22 @@ describe('parseRelayControl', () => {
     for (const raw of ['{"n":"0","c":"x"}', '{"e":"x","sig":"y"}', 'lixo', '{"r":"peer"}', '{"r":"outro"}']) {
       expect(parseRelayControl(raw), raw).toBeNull()
     }
+  })
+})
+
+describe('relay url', () => {
+  it('accepts https and local http only', () => {
+    expect(normalizeRelayUrl(' https://pairlan-relay.ana.workers.dev/ ')).toBe('https://pairlan-relay.ana.workers.dev')
+    expect(normalizeRelayUrl('http://127.0.0.1:8787')).toBe('http://127.0.0.1:8787')
+    expect(normalizeRelayUrl('http://localhost:8787')).toBe('http://localhost:8787')
+    for (const bad of ['http://relay.example.com', 'ftp://x', 'https://u:p@x.dev', 'https://x.dev/?a=1', 'lixo', '', null]) {
+      expect(normalizeRelayUrl(bad), String(bad)).toBeNull()
+    }
+  })
+
+  it('builds http and socket endpoints', () => {
+    expect(relayEndpoint('https://r.dev', '/users/ana')).toBe('https://r.dev/users/ana')
+    expect(relayEndpoint('https://r.dev', '/pair?me=a&peer=b', true)).toBe('wss://r.dev/pair?me=a&peer=b')
+    expect(relayEndpoint('http://127.0.0.1:8787', '/pair', true)).toBe('ws://127.0.0.1:8787/pair')
   })
 })

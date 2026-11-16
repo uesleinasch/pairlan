@@ -17,7 +17,28 @@ export const deleteMessage = (username: string, ts: number): string => `pairlan-
 export const authMessage = (nonce: string, me: string, peer: string): string =>
   `pairlan-relay-v1|${nonce}|${me}|${peer}`
 
-export const roomKey = (a: string, b: string): string => [a, b].sort().join('|')
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+export function normalizeRelayUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const url = new URL(value.trim())
+    const secure = url.protocol === 'https:'
+    const local = url.protocol === 'http:' && LOCAL_HOSTS.has(url.hostname)
+    if ((!secure && !local) || url.username || url.password || url.search || url.hash) return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+export function relayEndpoint(base: string, path: string, socket = false): string {
+  const url = new URL(path, base)
+  if (socket) url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return url.toString()
+}
+
+export const roomKey =(a: string, b: string): string => [a, b].sort().join('|')
 
 export type RelayIceServer = { urls: string | string[]; username?: string; credential?: string }
 
