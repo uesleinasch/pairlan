@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Note } from '../../../shared/notes'
 import type { Attachment, ChatMessage } from '../../../shared/protocol'
 import { formatBytes } from '../format'
+import type { MenuAt } from '../MessageMenu'
+import { HIT_LABEL } from '../notes'
 import { splitFences } from '../text'
 
 const api = window.pairlan
@@ -54,11 +57,38 @@ function AttachmentLine({ id, attachment }: { id: string; attachment: Attachment
   )
 }
 
-export function TermMessage({ msg, mine }: { msg: ChatMessage; mine: boolean }) {
+type Props = { msg: ChatMessage; mine: boolean; note?: Note; onMenu: (at: MenuAt) => void }
+
+function Mark({ note }: { note?: Note }) {
+  if (!note) return <> </>
+  if (!note.hit) {
+    return (
+      <span className="term-dim" role="img" aria-label="salva nas notas">
+        ○
+      </span>
+    )
+  }
   return (
-    <div className="term-msg">
+    <span className={`term-hit ${note.hit}`} role="img" aria-label={`hit ${HIT_LABEL[note.hit].toLowerCase()}`}>
+      ●
+    </span>
+  )
+}
+
+export function TermMessage({ msg, mine, note, onMenu }: Props) {
+  return (
+    <div
+      className="term-msg"
+      id={`tmsg-${msg.id}`}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onMenu({ x: e.clientX, y: e.clientY })
+      }}
+    >
       <span className="term-prefix">
-        <span className="term-dim">[{clock(msg.ts)}]</span> <span className={mine ? 'term-me' : 'term-peer'}>{msg.fromName}</span>
+        <span className="term-dim">[{clock(msg.ts)}]</span>
+        <Mark note={note} />
+        <span className={mine ? 'term-me' : 'term-peer'}>{msg.fromName}</span>
       </span>
       <div className="term-content">
         {msg.attachment ? (

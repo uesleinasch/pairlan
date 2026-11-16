@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppConfig, InternetStatus, LinkStatus, TransferProgress, WifiDirectStatus } from '../../shared/api'
+import type { Note } from '../../shared/notes'
 import type { ChatMessage, PeerInfo } from '../../shared/protocol'
 import { Conversation } from './Conversation'
 import { MediaControls } from './MediaControls'
+import { MessageMenu, type MenuAt } from './MessageMenu'
+import { HIT_LABEL, noteBody } from './notes'
+import { NotesView } from './NotesView'
 import { setIceServers } from './rtc'
 import { incomingText } from './alerts'
 import { ScreenView } from './ScreenView'
@@ -13,6 +17,7 @@ import { SystemAudioBar } from './SystemAudioBar'
 import { TerminalView } from './terminal/TerminalView'
 import { TopAppBar } from './TopAppBar'
 import { useAlerts } from './useAlerts'
+import { copyText, flashElement, useNotes } from './useNotes'
 import { useScreenShare } from './useScreenShare'
 import { useSystemAudio } from './useSystemAudio'
 import { useWalkie } from './useWalkie'
@@ -54,6 +59,10 @@ export function App() {
   const ducked = walkie.state !== 'idle'
   const systemAudio = useSystemAudio(connected, config?.liveAudio ?? true, ducked)
   const alerts = useAlerts(connected)
+  const notes = useNotes()
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [menu, setMenu] = useState<{ msg: ChatMessage; at: MenuAt } | null>(null)
+  const [jumpTo, setJumpTo] = useState<string | null>(null)
 
   useEffect(() => {
     void api.getState().then((s) => {
@@ -169,6 +178,12 @@ export function App() {
     [show]
   )
 
+  useEffect(() => {
+    if (notesOpen || !jumpTo) return
+    if (!flashElement(`msg-${jumpTo}`)) show('Essa mensagem não está mais no histórico.', undefined, 'info')
+    setJumpTo(null)
+  }, [notesOpen, jumpTo, show])
+
   const clearHistory = useCallback(async () => {
     await api.clearHistory()
     setMessages([])
@@ -217,9 +232,15 @@ export function App() {
         wifi={wifi}
         internet={internet}
         alerts={alerts}
+        notes={notes}
       />
     )
   }
+
+  const copy = (text: string) => void copyText(text).then((ok) => show(ok ? 'Copiado.' : 'Não deu para copiar.', undefined, ok ? 'info' : 'error'))
+  const openNotes = { label: 'Ver notas', run: () => setNotesOpen(true) }
+  const removeNote = (note: Note) =>
+    void notes.remove(note.id).then(() => show('Nota apagada.', { label: 'Desfazer', run: () => void notes.restore(note) }, 'info'))
 
   const alertClass = [
     alerts.incoming && alerts.incoming !== 'shake' ? `alert-${alerts.incoming}` : '',
@@ -230,66 +251,104 @@ export function App() {
 
   return (
     <main className={alertClass ? `app ${alertClass}` : 'app'}>
-      <TopAppBar
-        status={status}
-        searching={searching}
-        outgoing={outgoing}
-        onToggleSearch={() => api.setSearching(!searching)}
-        onOpenSettings={() => setSettingsOpen(true)}
-        alert={alerts.outgoing}
-        onAlert={alerts.send}
-      />
-      {connected && alerts.incoming && (
-        <div className={`alert-banner ${alerts.incoming}`} role="alert">
-          <md-icon aria-hidden="true">{alerts.incoming === 'shake' ? 'vibration' : 'campaign'}</md-icon>
-          <span className="type-body-medium">{incomingText(alerts.incoming, peerName)}</span>
-          <md-text-button onClick={alerts.ack}>Vi</md-text-button>
-        </div>
+      {notesOpen && (
+        <NotesView
+          notes={notes.notes}
+          onBack={() => setNotesOpen(false)}
+          onShow={(id) => {
+            setJumpTo(id)
+            setNotesOpen(false)
+          }}
+          onHit={(id, hit) => void notes.setHit(id, hit)}
+          onComment={(id, comment) => void notes.setComment(id, comment)}
+          onRemove={removeNote}
+          onCopy={(note) => copy(noteBody(note))}
+        />
       )}
-      {!connected && (searching || status.state === 'connecting') && <md-linear-progress indeterminate className="searching" aria-label="Procurando o par" />}
-      <MediaControls
-        connected={connected}
-        sharingScreen={share.sharing}
-        sharingAudio={systemAudio.sharing}
-        audioBusy={systemAudio.starting}
-        controlAllowed={controlAllowed}
-        controlBusy={controlBusy}
-        onToggleControl={() => void toggleControl()}
-        liveAudio={config.liveAudio}
-        onToggleScreen={() => (share.sharing ? share.stopSharing() : void share.startSharing())}
-        onToggleAudio={() => (systemAudio.sharing ? systemAudio.stop() : void systemAudio.start())}
-        onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
-      />
-      <div className={showScreen ? 'body split' : 'body'}>
-        {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} canControl={peerControl} onRequestControl={requestControl} />}
-        <div className="side">
-          {connected && systemAudio.incoming && (
-            <SystemAudioBar
+      <div className="chat-pane" hidden={notesOpen}>
+        <TopAppBar
+          status={status}
+          searching={searching}
+          outgoing={outgoing}
+          onToggleSearch={() => api.setSearching(!searching)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          alert={alerts.outgoing}
+          onAlert={alerts.send}
+          notesCount={notes.notes.length}
+          onOpenNotes={() => setNotesOpen(true)}
+        />
+        {connected && alerts.incoming && (
+          <div className={`alert-banner ${alerts.incoming}`} role="alert">
+            <md-icon aria-hidden="true">{alerts.incoming === 'shake' ? 'vibration' : 'campaign'}</md-icon>
+            <span className="type-body-medium">{incomingText(alerts.incoming, peerName)}</span>
+            <md-text-button onClick={alerts.ack}>Vi</md-text-button>
+          </div>
+        )}
+        {!connected && (searching || status.state === 'connecting') && <md-linear-progress indeterminate className="searching" aria-label="Procurando o par" />}
+        <MediaControls
+          connected={connected}
+          sharingScreen={share.sharing}
+          sharingAudio={systemAudio.sharing}
+          audioBusy={systemAudio.starting}
+          controlAllowed={controlAllowed}
+          controlBusy={controlBusy}
+          onToggleControl={() => void toggleControl()}
+          liveAudio={config.liveAudio}
+          onToggleScreen={() => (share.sharing ? share.stopSharing() : void share.startSharing())}
+          onToggleAudio={() => (systemAudio.sharing ? systemAudio.stop() : void systemAudio.start())}
+          onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
+        />
+        <div className={showScreen ? 'body split' : 'body'}>
+          {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} canControl={peerControl} onRequestControl={requestControl} />}
+          <div className="side">
+            {connected && systemAudio.incoming && (
+              <SystemAudioBar
+                peerName={peerName}
+                muted={systemAudio.muted}
+                volume={systemAudio.volume}
+                ducked={ducked}
+                onToggleMute={() => systemAudio.setMuted(!systemAudio.muted)}
+                onVolume={systemAudio.setVolume}
+              />
+            )}
+            <Conversation
+              selfId={self.id}
               peerName={peerName}
-              muted={systemAudio.muted}
-              volume={systemAudio.volume}
-              ducked={ducked}
-              onToggleMute={() => systemAudio.setMuted(!systemAudio.muted)}
-              onVolume={systemAudio.setVolume}
+              messages={messages}
+              transfers={transfers}
+              connected={connected}
+              searching={searching}
+              peerTyping={peerTyping}
+              walkie={walkie}
+              onSend={send}
+              onAttached={appendMessages}
+              onTyping={api.sendTyping}
+              onConnectByIp={() => setSettingsOpen(true)}
+              onSearchAgain={() => api.setSearching(true)}
+              notes={notes.byMessage}
+              onMessageMenu={(msg, at) => setMenu({ msg, at })}
             />
-          )}
-          <Conversation
-            selfId={self.id}
-            peerName={peerName}
-            messages={messages}
-            transfers={transfers}
-            connected={connected}
-            searching={searching}
-            peerTyping={peerTyping}
-            walkie={walkie}
-            onSend={send}
-            onAttached={appendMessages}
-            onTyping={api.sendTyping}
-            onConnectByIp={() => setSettingsOpen(true)}
-            onSearchAgain={() => api.setSearching(true)}
-          />
+          </div>
         </div>
       </div>
+      {menu && (
+        <MessageMenu
+          variant="m3"
+          at={menu.at}
+          note={notes.byMessage.get(menu.msg.id)}
+          onSave={() => void notes.save(menu.msg).then(() => show('Salvo nas notas.', openNotes, 'info'))}
+          onUnsave={() => {
+            const note = notes.byMessage.get(menu.msg.id)
+            if (note) removeNote(note)
+          }}
+          onHit={(hit) => {
+            const was = notes.byMessage.get(menu.msg.id)?.hit
+            void notes.toggleHit(menu.msg, hit).then(() => show(was === hit ? 'Hit removido.' : `Salvo como hit ${HIT_LABEL[hit].toLowerCase()}.`, openNotes, 'info'))
+          }}
+          onCopy={() => copy(menu.msg.attachment ? menu.msg.attachment.name : menu.msg.text)}
+          onClose={() => setMenu(null)}
+        />
+      )}
       <SettingsDialog
         open={settingsOpen}
         config={config}

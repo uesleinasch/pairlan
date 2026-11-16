@@ -1,21 +1,26 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { AppConfig, InternetStatus, LinkStatus, TransferProgress, WifiDirectStatus } from '../../../shared/api'
 import { normalizeUsername } from '../../../shared/relay'
+import type { Note } from '../../../shared/notes'
 import type { ChatMessage, PeerInfo } from '../../../shared/protocol'
 import { pastedFiles, sendFiles } from '../files'
 import { incomingText } from '../alerts'
 import { formatBytes } from '../format'
 import { internetSummary } from '../internet'
+import { MessageMenu, type MenuAt } from '../MessageMenu'
+import { HIT_LABEL, noteBody, parseHitArg, preview } from '../notes'
 import { ScreenView } from '../ScreenView'
 import type { SnackbarAction, SnackbarItem } from '../Snackbar'
 import type { useAlerts } from '../useAlerts'
 import type { useScreenShare } from '../useScreenShare'
 import type { useSystemAudio } from '../useSystemAudio'
+import { copyText, flashElement, type NotesApi } from '../useNotes'
 import type { useWalkie } from '../useWalkie'
 import { walkieStatusText } from '../WalkieButton'
 import { completeCommand, helpText, parseInput, type CommandName } from './commands'
 import { PowerLine } from './PowerLine'
 import { TermConfig } from './TermConfig'
+import { TermNotes } from './TermNotes'
 import { clock, TermMessage } from './TermMessage'
 import './terminal.css'
 
@@ -50,6 +55,7 @@ type Props = {
   wifi: WifiDirectStatus
   internet: InternetStatus
   alerts: ReturnType<typeof useAlerts>
+  notes: NotesApi
 }
 
 const progressBar = (done: number, total: number) => {
@@ -75,6 +81,9 @@ export function TerminalView(p: Props) {
   const [configOpen, setConfigOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [completions, setCompletions] = useState<string[]>([])
+  const [notesQuery, setNotesQuery] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ msg: ChatMessage; at: MenuAt } | null>(null)
+  const [jumpTo, setJumpTo] = useState<string | null>(null)
   const seq = useRef(0)
   const logRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -113,9 +122,22 @@ export function TerminalView(p: Props) {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [feed.length, p.transfers.length, p.peerTyping, p.walkie.state])
 
+  const notesOpen = notesQuery !== null
+  const dialogOpen = configOpen || notesOpen
+
   useEffect(() => {
-    if (!configOpen) inputRef.current?.focus()
-  }, [configOpen])
+    if (!dialogOpen) inputRef.current?.focus()
+  }, [dialogOpen])
+
+  useEffect(() => {
+    if (notesOpen || !jumpTo) return
+    if (!flashElement(`tmsg-${jumpTo}`)) {
+      setLocal((prev) => [...prev, { id: ++seq.current, ts: Date.now(), kind: 'err', text: 'pairlan: essa mensagem não está mais na tela (histórico apagado ou /limpar)' }])
+    }
+    setJumpTo(null)
+  }, [notesOpen, jumpTo])
+
+  const restoreAction = (note: Note) => ({ label: 'desfazer', run: () => void p.notes.restore(note).then(() => push('out', 'nota de volta.')) })
 
   const needPeer = () => {
     if (connected) return true
@@ -202,6 +224,17 @@ export function TerminalView(p: Props) {
         if (!result.ok) return push('err', `pairlan: ${result.error.toLowerCase()}`)
         return push('out', `par @${normalizeUsername(arg)} salvo. o par roda /par ${p.internet.me}. confira o código com /par.`)
       }
+      case 'salvar': {
+        const hit = parseHitArg(arg)
+        if (hit === undefined) return push('err', 'uso: /salvar  ou  /salvar vermelho|amarelo|verde')
+        const target = [...p.messages].reverse().find((m) => m.from !== p.self.id) ?? p.messages[p.messages.length - 1]
+        if (!target) return push('err', 'pairlan: nenhuma mensagem para salvar')
+        await p.notes.save(target, hit)
+        const body = target.attachment ? `[anexo] ${target.attachment.name}` : target.text
+        return push('out', `salvo nas notas${hit ? ` como hit ${HIT_LABEL[hit].toLowerCase()}` : ''}: "${preview(body)}"`)
+      }
+      case 'notas':
+        return setNotesQuery(arg)
       case 'config':
         return setConfigOpen(true)
       case 'tema':
@@ -324,7 +357,7 @@ export function TerminalView(p: Props) {
     </button>
   )
 
-  const windows = configOpen ? '0:chat 1:config*' : showScreen ? '0:chat 1:tela*' : '0:chat*'
+  const windows = configOpen ? '0:chat 1:config*' : notesOpen ? '0:chat 1:notas*' : showScreen ? '0:chat 1:tela*' : '0:chat*'
   const right = connected
     ? `${peerName} ${p.status.state === 'connected' && p.status.via === 'internet' ? 'internet' : (p.status.address ?? '')}${showScreen ? ' · vendo tela' : ''}`
     : p.status.state === 'connecting'
@@ -358,7 +391,7 @@ export function TerminalView(p: Props) {
           }}
           onDrop={onDrop}
           onClick={() => {
-            if (!configOpen && !window.getSelection()?.toString()) inputRef.current?.focus()
+            if (!dialogOpen && !window.getSelection()?.toString()) inputRef.current?.focus()
           }}
         >
           <div className="term-log" ref={logRef} role="log" aria-live="polite" aria-label="Mensagens">
@@ -366,7 +399,13 @@ export function TerminalView(p: Props) {
             {promptLine('tail -f chat.log')}
             {feed.map((item) =>
               'msg' in item && item.msg ? (
-                <TermMessage key={item.key} msg={item.msg} mine={item.msg.from === p.self.id} />
+                <TermMessage
+                  key={item.key}
+                  msg={item.msg}
+                  mine={item.msg.from === p.self.id}
+                  note={p.notes.byMessage.get(item.msg.id)}
+                  onMenu={(at) => item.msg && setMenu({ msg: item.msg, at })}
+                />
               ) : 'line' in item && item.line ? (
                 item.line.kind === 'cmd' ? (
                   <div key={item.key}>{promptLine(item.line.text)}</div>
@@ -436,6 +475,43 @@ export function TerminalView(p: Props) {
 
           {dragging && <div className="term-drop">-- solte para enviar --</div>}
 
+          {menu && (
+            <MessageMenu
+              variant="term"
+              at={menu.at}
+              note={p.notes.byMessage.get(menu.msg.id)}
+              onSave={() => void p.notes.save(menu.msg).then(() => push('out', 'salvo nas notas. /notas abre.'))}
+              onUnsave={() => {
+                const note = p.notes.byMessage.get(menu.msg.id)
+                if (note) void p.notes.remove(note.id).then(() => push('out', 'removido das notas.', restoreAction(note)))
+              }}
+              onHit={(hit) => {
+                const was = p.notes.byMessage.get(menu.msg.id)?.hit
+                void p.notes.toggleHit(menu.msg, hit).then(() => push('out', was === hit ? 'hit removido.' : `salvo como hit ${HIT_LABEL[hit].toLowerCase()}.`))
+              }}
+              onCopy={() => void copyText(menu.msg.attachment ? menu.msg.attachment.name : menu.msg.text).then((ok) => push(ok ? 'out' : 'err', ok ? 'copiado.' : 'pairlan: não deu para copiar'))}
+              onClose={() => setMenu(null)}
+            />
+          )}
+
+          {notesOpen && (
+            <TermNotes
+              notes={p.notes.notes}
+              selfId={p.self.id}
+              initialQuery={notesQuery}
+              onClose={() => setNotesQuery(null)}
+              onShow={(id) => {
+                setJumpTo(id)
+                setNotesQuery(null)
+              }}
+              onHit={(id, hit) => void p.notes.setHit(id, hit)}
+              onComment={(id, comment) => void p.notes.setComment(id, comment)}
+              onRemove={(note) => void p.notes.remove(note.id)}
+              onRestore={(note) => void p.notes.restore(note)}
+              onCopy={(note) => copyText(noteBody(note))}
+            />
+          )}
+
           {configOpen && (
             <TermConfig
               config={p.config}
@@ -477,6 +553,7 @@ export function TerminalView(p: Props) {
             }, '/conectar — conectar por IP')}
           </>
         )}
+        {seg(`notas ${p.notes.notes.length}`, notesOpen, () => setNotesQuery(notesOpen ? null : ''), '/notas — abrir as notas')}
         {talking && <span className="term-status-rec">● fala</span>}
         <span className="term-fill" />
         <span className="term-status-right">{right}</span>

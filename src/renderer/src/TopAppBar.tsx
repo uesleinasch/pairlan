@@ -10,6 +10,8 @@ type Props = {
   onOpenSettings: () => void
   alert: OutgoingAlert | null
   onAlert: (kind: AlertKind) => void
+  notesCount: number
+  onOpenNotes: () => void
 }
 
 const ALERT_ICON: Record<AlertKind, string> = { yellow: 'warning', red: 'error', shake: 'vibration' }
@@ -20,7 +22,7 @@ const STATUS_ICON: Record<LinkStatus['state'], string> = {
   connected: 'link'
 }
 
-export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenSettings, alert, onAlert }: Props) {
+export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenSettings, alert, onAlert, notesCount, onOpenNotes }: Props) {
   const [alertMenu, setAlertMenu] = useState(false)
   const title = status.state === 'connected' ? status.peer.name : 'PairLAN'
   const base =
@@ -78,6 +80,16 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
             </md-menu>
           </span>
         )}
+        <span className="badge-anchor">
+          <md-icon-button onClick={onOpenNotes} aria-label={`Notas (${notesCount})`} title="Notas">
+            <md-icon>bookmarks</md-icon>
+          </md-icon-button>
+          {notesCount > 0 && (
+            <span className="badge type-label-small" aria-hidden="true">
+              {notesCount > 99 ? '99+' : notesCount}
+            </span>
+          )}
+        </span>
         <md-icon-button onClick={onOpenSettings} aria-label="Configurações" title="Configurações">
           <md-icon>settings</md-icon>
         </md-icon-button>

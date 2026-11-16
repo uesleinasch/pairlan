@@ -1,3 +1,4 @@
+import type { HitLevel, Note } from './notes'
 import type { AlertLevel, ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
 
 export type AppConfig = {
@@ -134,4 +135,10 @@ export type PairlanApi = {
   onAlert(cb: (level: AlertLevel) => void): Unsubscribe
   onShake(cb: () => void): Unsubscribe
   onAlertSeen(cb: () => void): Unsubscribe
+  listNotes(): Promise<Note[]>
+  saveNote(msg: ChatMessage, hit?: HitLevel | null): Promise<Note[]>
+  setNoteHit(id: string, hit: HitLevel | null): Promise<Note[]>
+  setNoteComment(id: string, comment: string): Promise<Note[]>
+  removeNote(id: string): Promise<Note[]>
+  restoreNote(note: Note): Promise<Note[]>
 }

@@ -6,6 +6,8 @@ export type CommandName =
   | 'alerta'
   | 'chacoalhar'
   | 'anexo'
+  | 'notas'
+  | 'salvar'
   | 'parar'
   | 'buscar'
   | 'conectar'
@@ -28,6 +30,8 @@ export const COMMANDS: CommandInfo[] = [
   { name: 'alerta', usage: '/alerta [vermelho]', help: 'chamar atenção do par (amarelo; vermelho = urgente)', group: 'atenção' },
   { name: 'chacoalhar', usage: '/chacoalhar', help: 'balançar a janela do par', group: 'atenção' },
   { name: 'anexo', usage: '/anexo', help: 'escolher arquivo (ou arraste / cole)', group: 'arquivos' },
+  { name: 'salvar', usage: '/salvar [vermelho|amarelo|verde]', help: 'salvar a última msg do par nas notas (cor = hit)', group: 'notas' },
+  { name: 'notas', usage: '/notas [busca]', help: 'abrir as notas (clique direito numa msg também salva)', group: 'notas' },
   { name: 'parar', usage: '/parar', help: 'parar de procurar o par', group: 'conexão' },
   { name: 'buscar', usage: '/buscar', help: 'voltar a procurar', group: 'conexão' },
   { name: 'conectar', usage: '/conectar ip', help: 'conectar direto por ip', group: 'conexão' },

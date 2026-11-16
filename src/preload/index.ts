@@ -62,7 +62,13 @@ const api: PairlanApi = {
   ackAlert: () => ipcRenderer.send('alert:ack'),
   onAlert: (cb) => listen('alert:incoming', cb),
   onShake: (cb) => listen('alert:shake', () => cb()),
-  onAlertSeen: (cb) => listen('alert:seen', () => cb())
+  onAlertSeen: (cb) => listen('alert:seen', () => cb()),
+  listNotes: () => ipcRenderer.invoke('notes:list'),
+  saveNote: (msg, hit = null) => ipcRenderer.invoke('notes:save', msg, hit),
+  setNoteHit: (id, hit) => ipcRenderer.invoke('notes:hit', id, hit),
+  setNoteComment: (id, comment) => ipcRenderer.invoke('notes:comment', id, comment),
+  removeNote: (id) => ipcRenderer.invoke('notes:remove', id),
+  restoreNote: (note) => ipcRenderer.invoke('notes:restore', note)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)

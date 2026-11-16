@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
 import type { TransferProgress } from '../../shared/api'
+import type { Note } from '../../shared/notes'
 import type { ChatMessage } from '../../shared/protocol'
 import { AttachmentView } from './AttachmentView'
 import { EmptyState } from './EmptyState'
 import { pastedFiles, sendFiles } from './files'
 import { formatBytes } from './format'
+import type { MenuAt } from './MessageMenu'
 import { MessageText } from './MessageText'
+import { HIT_LABEL } from './notes'
 import type { WalkieState } from './useWalkie'
 import { WalkieButton, walkieStatusText } from './WalkieButton'
 
@@ -31,6 +34,8 @@ type Props = {
   onTyping: () => void
   onConnectByIp: () => void
   onSearchAgain: () => void
+  notes: Map<string, Note>
+  onMessageMenu: (msg: ChatMessage, at: MenuAt) => void
 }
 
 const api = window.pairlan
@@ -118,14 +123,33 @@ export function Conversation(p: Props) {
             onSearchAgain={p.onSearchAgain}
           />
         ) : (
-          p.messages.map((m) => (
-            <article key={m.id} className={m.from === p.selfId ? 'bubble mine' : 'bubble'}>
-              <header className="type-body-small">
-                <strong>{m.fromName}</strong> · <time>{time(m.ts)}</time>
-              </header>
-              {m.attachment ? <AttachmentView id={m.id} attachment={m.attachment} /> : <MessageText text={m.text} />}
-            </article>
-          ))
+          p.messages.map((m) => {
+            const note = p.notes.get(m.id)
+            return (
+              <article
+                key={m.id}
+                id={`msg-${m.id}`}
+                className={m.from === p.selfId ? 'bubble mine' : 'bubble'}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  p.onMessageMenu(m, { x: e.clientX, y: e.clientY })
+                }}
+              >
+                <header className="type-body-small">
+                  <strong>{m.fromName}</strong> · <time>{time(m.ts)}</time>
+                  {note &&
+                    (note.hit ? (
+                      <span className={`bubble-hit ${note.hit}`} role="img" aria-label={`Hit ${HIT_LABEL[note.hit].toLowerCase()}`} title={`Hit ${HIT_LABEL[note.hit].toLowerCase()}`} />
+                    ) : (
+                      <md-icon className="bubble-saved" role="img" aria-label="Salva nas notas" title="Salva nas notas">
+                        bookmark
+                      </md-icon>
+                    ))}
+                </header>
+                {m.attachment ? <AttachmentView id={m.id} attachment={m.attachment} /> : <MessageText text={m.text} />}
+              </article>
+            )
+          })
         )}
       </div>
 
