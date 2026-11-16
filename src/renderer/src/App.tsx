@@ -7,6 +7,7 @@ import { setIceServers } from './rtc'
 import { ScreenView } from './ScreenView'
 import { SettingsDialog } from './SettingsDialog'
 import { Snackbar, useSnackbar } from './Snackbar'
+import { playNotifySound } from './sound'
 import { SystemAudioBar } from './SystemAudioBar'
 import { TerminalView } from './terminal/TerminalView'
 import { TopAppBar } from './TopAppBar'
@@ -67,6 +68,7 @@ export function App() {
       api.onWifiDirect(setWifi),
       api.onInternet(setInternet),
       api.onIceServers(setIceServers),
+      api.onPlaySound(() => void playNotifySound()),
       api.onSearching(setSearching),
       api.onControlState(setControlAllowed),
       api.onPeerControl(setPeerControl),

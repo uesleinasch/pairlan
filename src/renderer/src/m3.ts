@@ -16,6 +16,8 @@ import '@material/web/list/list.js'
 import '@material/web/progress/linear-progress.js'
 import '@material/web/focus/md-focus-ring.js'
 import '@material/web/ripple/ripple.js'
+import '@material/web/select/outlined-select.js'
+import '@material/web/select/select-option.js'
 import '@material/web/slider/slider.js'
 import '@material/web/switch/switch.js'
 import '@material/web/textfield/outlined-text-field.js'
@@ -47,6 +49,8 @@ declare module 'react' {
       'md-outlined-text-field': MdElement
       'md-focus-ring': MdElement
       'md-ripple': MdElement
+      'md-outlined-select': MdElement
+      'md-select-option': MdElement
     }
   }
 }

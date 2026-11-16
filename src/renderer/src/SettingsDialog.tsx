@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from 'react'
 import type { ActionResult, AppConfig, InternetStatus, WifiDirectStatus } from '../../shared/api'
 import { normalizeRelayUrl } from '../../shared/relay'
 import { internetSummary } from './internet'
+import { playNotifySound, useSoundOptions } from './sound'
 import { canSwitchToWifi, wifiSummary } from './wifi'
 
 const api = window.pairlan
@@ -43,6 +44,8 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
   const [relayUrl, setRelayUrl] = useState(config.relayUrl)
   const [relayError, setRelayError] = useState('')
   const [internetBusy, setInternetBusy] = useState(false)
+  const [soundError, setSoundError] = useState('')
+  const sounds = useSoundOptions(config.soundCustomName)
   const opacity = Math.round(config.opacity * 100)
 
   useEffect(() => {
@@ -59,6 +62,7 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
     setPeerError('')
     setRelayUrl(config.relayUrl)
     setRelayError('')
+    setSoundError('')
   }, [open, config.name, config.manualPeer, config.wifiDirectPeer, config.internetUser, config.relayUrl])
 
   const runInternet = async (action: () => Promise<ActionResult>, setError: (error: string) => void) => {
@@ -73,6 +77,12 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
     const valid = !relayUrl.trim() || normalizeRelayUrl(relayUrl)
     setRelayError(valid ? '' : 'Use o endereço https:// do relay.')
     if (valid) onChange({ relayUrl: relayUrl.trim() })
+  }
+
+  const pickSound = async () => {
+    const result = await api.pickSound()
+    setSoundError(result.ok ? '' : result.error)
+    if (result.ok) void playNotifySound()
   }
 
   const startWifi = async (peer?: string) => {
@@ -273,6 +283,50 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
               onchange={(e: Event) => onChange({ terminalMode: selectedOf(e) })}
             />
           </label>
+        </section>
+
+        <section>
+          <h2 className="type-title-small">Som</h2>
+          <label className="settings-switch">
+            <span>
+              <span className="type-body-medium">Som ao receber mensagem</span>
+              <span className="type-body-small">Toca quando a janela não está em foco</span>
+            </span>
+            <md-switch
+              selected={config.notifySound}
+              aria-label="Som ao receber mensagem"
+              onchange={(e: Event) => onChange({ notifySound: selectedOf(e) })}
+            />
+          </label>
+          {config.notifySound && (
+            <>
+              <md-outlined-select
+                label="Som"
+                value={config.sound}
+                menuPositioning="fixed"
+                onchange={(e: Event) => onChange({ sound: valueOf(e) })}
+              >
+                {sounds.map((option) => (
+                  <md-select-option key={option.id} value={option.id} selected={option.id === config.sound}>
+                    <div slot="headline">{option.label}</div>
+                  </md-select-option>
+                ))}
+              </md-outlined-select>
+              <div className="settings-row">
+                <md-filled-tonal-button onClick={() => void playNotifySound()}>
+                  <md-icon slot="icon">play_arrow</md-icon>
+                  Testar
+                </md-filled-tonal-button>
+                <md-text-button onClick={() => void pickSound()}>
+                  <md-icon slot="icon">upload_file</md-icon>
+                  Usar meu arquivo
+                </md-text-button>
+              </div>
+              <p className={soundError ? 'settings-error type-body-small' : 'settings-note type-body-small'} role="status">
+                {soundError || 'Seu arquivo pode ser mp3, ogg ou wav, até 2 MB.'}
+              </p>
+            </>
+          )}
         </section>
 
         <section>

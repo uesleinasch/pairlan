@@ -52,7 +52,11 @@ const api: PairlanApi = {
   addInternetPeer: (username) => ipcRenderer.invoke('internet:add-peer', username),
   removeInternetPeer: () => ipcRenderer.send('internet:remove-peer'),
   onInternet: (cb) => listen('internet:status', cb),
-  onIceServers: (cb) => listen('rtc:ice-servers', cb)
+  onIceServers: (cb) => listen('rtc:ice-servers', cb),
+  listSounds: () => ipcRenderer.invoke('sound:list'),
+  soundData: () => ipcRenderer.invoke('sound:data'),
+  pickSound: () => ipcRenderer.invoke('sound:pick'),
+  onPlaySound: (cb) => listen('sound:play', () => cb())
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)
