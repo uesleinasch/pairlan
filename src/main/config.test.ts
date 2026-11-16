@@ -16,10 +16,11 @@ describe('clampOpacity', () => {
 
 describe('runtimeOptions', () => {
   it('reads profile and port offset', () => {
-    expect(runtimeOptions({})).toEqual({ profile: null, linkPort: LINK_PORT })
-    expect(runtimeOptions({ PAIRLAN_PROFILE: 'b/../x', PAIRLAN_PORT_OFFSET: '1' })).toEqual({
+    expect(runtimeOptions({})).toEqual({ profile: null, linkPort: LINK_PORT, lan: true })
+    expect(runtimeOptions({ PAIRLAN_PROFILE: 'b/../x', PAIRLAN_PORT_OFFSET: '1', PAIRLAN_NO_LAN: '1' })).toEqual({
       profile: 'bx',
-      linkPort: LINK_PORT + 1
+      linkPort: LINK_PORT + 1,
+      lan: false
     })
   })
 })
@@ -73,5 +74,32 @@ describe('wifiDirectPeer', () => {
     expect(normalizeConfig({}).wifiDirectPeer).toBe('')
     expect(normalizeConfig({ wifiDirectPeer: 'fc:b3:aa:bc:44:ff' }).wifiDirectPeer).toBe('fc:b3:aa:bc:44:ff')
     expect(normalizeConfig({ wifiDirectPeer: 'nope' }).wifiDirectPeer).toBe('')
+  })
+})
+
+describe('internet config', () => {
+  const key = 'A'.repeat(43)
+
+  it('keeps valid relay, user and contact', () => {
+    const c = normalizeConfig({
+      relayUrl: 'https://pairlan-relay.ana.workers.dev/',
+      internetUser: '@Ana',
+      internetPeer: { username: 'Bia', publicKey: key }
+    })
+    expect(c.relayUrl).toBe('https://pairlan-relay.ana.workers.dev')
+    expect(c.internetUser).toBe('ana')
+    expect(c.internetPeer).toEqual({ username: 'bia', publicKey: key })
+  })
+
+  it('drops insecure relays and broken contacts', () => {
+    const c = normalizeConfig({
+      relayUrl: 'http://relay.example.com',
+      internetUser: 'a b',
+      internetPeer: { username: 'bia', publicKey: 'curta' }
+    } as never)
+    expect(c.relayUrl).toBe('')
+    expect(c.internetUser).toBe('')
+    expect(c.internetPeer).toBeNull()
+    expect(normalizeConfig({ relayUrl: 'http://127.0.0.1:8787' }).relayUrl).toBe('http://127.0.0.1:8787')
   })
 })

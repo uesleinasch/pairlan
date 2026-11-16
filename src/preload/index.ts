@@ -47,7 +47,12 @@ const api: PairlanApi = {
   stopSystemAudio: () => ipcRenderer.send('sysaudio:stop'),
   startWifiDirect: (peer) => ipcRenderer.invoke('wifi:start', peer),
   stopWifiDirect: () => ipcRenderer.send('wifi:stop'),
-  onWifiDirect: (cb) => listen('wifi:status', cb)
+  onWifiDirect: (cb) => listen('wifi:status', cb),
+  registerInternet: (username) => ipcRenderer.invoke('internet:register', username),
+  addInternetPeer: (username) => ipcRenderer.invoke('internet:add-peer', username),
+  removeInternetPeer: () => ipcRenderer.send('internet:remove-peer'),
+  onInternet: (cb) => listen('internet:status', cb),
+  onIceServers: (cb) => listen('rtc:ice-servers', cb)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)

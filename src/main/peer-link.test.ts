@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LinkStatus } from '../shared/api'
 import type { WireMessage } from '../shared/protocol'
-import { iceMatchesPeer, isPrivateAddress, parseAddress, PeerLink } from './peer-link'
+import { iceMatchesPeer, isPrivateAddress, LinkChannel, parseAddress, PeerLink } from './peer-link'
 
 describe('iceMatchesPeer', () => {
   const host = (ip: string): string => `candidate:1 1 udp 2122260223 ${ip} 37607 typ host generation 0`
@@ -141,6 +141,76 @@ describe('PeerLink', () => {
     await revived.start()
     await new Promise((r) => setTimeout(r, 1500))
     expect(a.status().state).toBe('idle')
+  })
+})
+
+class MemoryChannel extends LinkChannel {
+  other: MemoryChannel | null = null
+  open = true
+
+  send(text: string, cb?: (err?: Error) => void): void {
+    const other = this.other
+    queueMicrotask(() => {
+      if (other?.open) other.emit('message', text)
+      cb?.()
+    })
+  }
+
+  ping(): void {
+    queueMicrotask(() => this.emit('pong'))
+  }
+
+  close(): void {
+    this.terminate()
+  }
+
+  terminate(): void {
+    for (const side of [this, this.other]) {
+      if (!side?.open) continue
+      side.open = false
+      side.emit('close')
+    }
+  }
+}
+
+const memoryPair = (): [MemoryChannel, MemoryChannel] => {
+  const a = new MemoryChannel()
+  const b = new MemoryChannel()
+  a.other = b
+  b.other = a
+  return [a, b]
+}
+
+describe('PeerLink over an attached channel', () => {
+  it('talks through any channel and reports the internet route', async () => {
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    const b = new PeerLink({ id: 'b', name: 'Bia' }, 0)
+    links.push(a, b)
+    const [ca, cb] = memoryPair()
+    const aUp = waitFor<LinkStatus>(a, 'status', connected)
+    a.attach(ca)
+    b.attach(cb)
+    expect(await aUp).toMatchObject({ state: 'connected', via: 'internet', address: null, peer: { name: 'Bia' } })
+
+    const got = waitFor<WireMessage>(b, 'message', (m) => m.t === 'typing')
+    expect(await a.sendAsync({ t: 'typing' })).toBe(true)
+    await got
+
+    const down = waitFor<LinkStatus>(a, 'status', (s) => s.state !== 'connected')
+    ca.terminate()
+    await down
+    expect(b.isConnected()).toBe(false)
+  })
+
+  it('refuses a second channel while one is up', async () => {
+    const a = new PeerLink({ id: 'a', name: 'Ana' }, 0)
+    links.push(a)
+    const [first] = memoryPair()
+    const [second] = memoryPair()
+    a.attach(first)
+    a.attach(second)
+    expect(second.open).toBe(false)
+    expect(first.open).toBe(true)
   })
 })
 
