@@ -1,0 +1,17 @@
+{
+  "name": "pairlan-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Relay do PairLAN para conectar o par pela internet (Cloudflare Workers + Durable Objects)",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261116.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.162.0"
+  }
+}
