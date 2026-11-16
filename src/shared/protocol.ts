@@ -39,6 +39,10 @@ export type SignalPayload = SignalBase &
 
 export const channelOf = (p: SignalPayload): MediaChannel => p.channel ?? 'screen'
 
+export type AlertLevel = 'yellow' | 'red'
+
+export const isAlertLevel = (v: unknown): v is AlertLevel => v === 'yellow' || v === 'red'
+
 export type WireMessage =
   | { t: 'hello'; v: number; peer: PeerInfo }
   | { t: 'chat'; msg: ChatMessage }
@@ -57,6 +61,9 @@ export type WireMessage =
   | { t: 'p2p-hello'; addr: string }
   | { t: 'p2p-start' }
   | { t: 'p2p-stop' }
+  | { t: 'alert'; level: AlertLevel }
+  | { t: 'shake' }
+  | { t: 'alert-seen' }
 
 export type RemoteInput =
   | { kind: 'move'; x: number; y: number }
@@ -185,6 +192,12 @@ export function parseWire(raw: string): WireMessage | null {
       return { t: 'p2p-start' }
     case 'p2p-stop':
       return { t: 'p2p-stop' }
+    case 'alert':
+      return isAlertLevel(data.level) ? { t: 'alert', level: data.level } : null
+    case 'shake':
+      return { t: 'shake' }
+    case 'alert-seen':
+      return { t: 'alert-seen' }
     default:
       return null
   }

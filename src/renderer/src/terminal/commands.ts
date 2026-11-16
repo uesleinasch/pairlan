@@ -3,6 +3,8 @@ export type CommandName =
   | 'audio'
   | 'ouvir'
   | 'controle'
+  | 'alerta'
+  | 'chacoalhar'
   | 'anexo'
   | 'parar'
   | 'buscar'
@@ -23,6 +25,8 @@ export const COMMANDS: CommandInfo[] = [
   { name: 'audio', usage: '/audio', help: 'transmitir / parar o áudio do pc', group: 'mídia' },
   { name: 'ouvir', usage: '/ouvir', help: 'voz do par ao vivo on/off', group: 'mídia' },
   { name: 'controle', usage: '/controle', help: 'liberar / bloquear meu mouse e teclado', group: 'mídia' },
+  { name: 'alerta', usage: '/alerta [vermelho]', help: 'chamar atenção do par (amarelo; vermelho = urgente)', group: 'atenção' },
+  { name: 'chacoalhar', usage: '/chacoalhar', help: 'balançar a janela do par', group: 'atenção' },
   { name: 'anexo', usage: '/anexo', help: 'escolher arquivo (ou arraste / cole)', group: 'arquivos' },
   { name: 'parar', usage: '/parar', help: 'parar de procurar o par', group: 'conexão' },
   { name: 'buscar', usage: '/buscar', help: 'voltar a procurar', group: 'conexão' },

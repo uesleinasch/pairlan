@@ -13,6 +13,8 @@ import '@material/web/iconbutton/filled-icon-button.js'
 import '@material/web/iconbutton/icon-button.js'
 import '@material/web/list/list-item.js'
 import '@material/web/list/list.js'
+import '@material/web/menu/menu.js'
+import '@material/web/menu/menu-item.js'
 import '@material/web/progress/linear-progress.js'
 import '@material/web/focus/md-focus-ring.js'
 import '@material/web/ripple/ripple.js'
@@ -44,6 +46,8 @@ declare module 'react' {
       'md-list': MdElement
       'md-list-item': MdElement
       'md-linear-progress': MdElement
+      'md-menu': MdElement
+      'md-menu-item': MdElement
       'md-slider': MdElement
       'md-switch': MdElement
       'md-outlined-text-field': MdElement

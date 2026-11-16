@@ -4,6 +4,7 @@ import type { ChatMessage, PeerInfo } from '../../shared/protocol'
 import { Conversation } from './Conversation'
 import { MediaControls } from './MediaControls'
 import { setIceServers } from './rtc'
+import { incomingText } from './alerts'
 import { ScreenView } from './ScreenView'
 import { SettingsDialog } from './SettingsDialog'
 import { Snackbar, useSnackbar } from './Snackbar'
@@ -11,6 +12,7 @@ import { playNotifySound } from './sound'
 import { SystemAudioBar } from './SystemAudioBar'
 import { TerminalView } from './terminal/TerminalView'
 import { TopAppBar } from './TopAppBar'
+import { useAlerts } from './useAlerts'
 import { useScreenShare } from './useScreenShare'
 import { useSystemAudio } from './useSystemAudio'
 import { useWalkie } from './useWalkie'
@@ -51,6 +53,7 @@ export function App() {
   const { startTalking, stopTalking } = walkie
   const ducked = walkie.state !== 'idle'
   const systemAudio = useSystemAudio(connected, config?.liveAudio ?? true, ducked)
+  const alerts = useAlerts(connected)
 
   useEffect(() => {
     void api.getState().then((s) => {
@@ -213,19 +216,36 @@ export function App() {
         onClearHistory={clearHistory}
         wifi={wifi}
         internet={internet}
+        alerts={alerts}
       />
     )
   }
 
+  const alertClass = [
+    alerts.incoming && alerts.incoming !== 'shake' ? `alert-${alerts.incoming}` : '',
+    alerts.shaking ? 'shaking' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <main className="app">
+    <main className={alertClass ? `app ${alertClass}` : 'app'}>
       <TopAppBar
         status={status}
         searching={searching}
         outgoing={outgoing}
         onToggleSearch={() => api.setSearching(!searching)}
         onOpenSettings={() => setSettingsOpen(true)}
+        alert={alerts.outgoing}
+        onAlert={alerts.send}
       />
+      {connected && alerts.incoming && (
+        <div className={`alert-banner ${alerts.incoming}`} role="alert">
+          <md-icon aria-hidden="true">{alerts.incoming === 'shake' ? 'vibration' : 'campaign'}</md-icon>
+          <span className="type-body-medium">{incomingText(alerts.incoming, peerName)}</span>
+          <md-text-button onClick={alerts.ack}>Vi</md-text-button>
+        </div>
+      )}
       {!connected && (searching || status.state === 'connecting') && <md-linear-progress indeterminate className="searching" aria-label="Procurando o par" />}
       <MediaControls
         connected={connected}
