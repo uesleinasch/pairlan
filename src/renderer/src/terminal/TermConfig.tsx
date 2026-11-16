@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { AppConfig, InternetStatus, WifiDirectStatus } from '../../../shared/api'
 import { internetSummary } from '../internet'
+import { playNotifySound, useSoundOptions } from '../sound'
 import { canSwitchToWifi, wifiSummary } from '../wifi'
 
 const api = window.pairlan
@@ -32,6 +33,8 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
   const [confirmClear, setConfirmClear] = useState(false)
   const [p2pAddress, setP2pAddress] = useState(config.wifiDirectPeer)
   const [p2pError, setP2pError] = useState('')
+  const [soundError, setSoundError] = useState('')
+  const sounds = useSoundOptions(config.soundCustomName)
   const box = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -54,6 +57,19 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
     setP2pError(result.ok ? '' : result.error.toLowerCase())
   }
 
+  const stepSound = (delta: number) => {
+    if (!sounds.length) return
+    const at = Math.max(0, sounds.findIndex((o) => o.id === config.sound))
+    onChange({ sound: sounds[(at + delta + sounds.length) % sounds.length].id })
+  }
+  const soundLabel = sounds.find((o) => o.id === config.sound)?.label ?? 'Padrão'
+
+  const pickSound = async () => {
+    const result = await api.pickSound()
+    setSoundError(result.ok ? '' : result.error.toLowerCase())
+    if (result.ok) void playNotifySound()
+  }
+
   const wifiBusy = wifi.state === 'on' || wifi.state === 'connecting'
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -63,7 +79,7 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
     }
   }
 
-  const toggle = (key: 'alwaysOnTop' | 'notifyMinimized' | 'terminalMode', label: string) => (
+  const toggle = (key: 'alwaysOnTop' | 'notifyMinimized' | 'notifySound' | 'terminalMode', label: string) => (
     <button type="button" className="term-opt" aria-pressed={config[key]} onClick={() => onChange({ [key]: !config[key] })}>
       [{config[key] ? 'x' : ' '}] {label}
     </button>
@@ -153,6 +169,34 @@ export function TermConfig({ config, onClose, onChange, onConnect, onClearHistor
           {toggle('notifyMinimized', 'notificar quando minimizado')}
           {toggle('terminalMode', 'modo terminal')}
         </div>
+
+        <p className="term-dim">─ som</p>
+        <div className="term-opts">{toggle('notifySound', 'som ao receber mensagem')}</div>
+        {config.notifySound && (
+          <>
+            <div className="term-field">
+              <span>som</span>
+              <span>
+                <button type="button" className="term-link" aria-label="Som anterior" onClick={() => stepSound(-1)}>
+                  &lt;
+                </button>{' '}
+                {soundLabel.toLowerCase()}{' '}
+                <button type="button" className="term-link" aria-label="Próximo som" onClick={() => stepSound(1)}>
+                  &gt;
+                </button>
+              </span>
+            </div>
+            <div className="term-opts">
+              <button type="button" className="term-opt" onClick={() => void playNotifySound()}>
+                [testar]
+              </button>
+              <button type="button" className="term-opt" onClick={() => void pickSound()}>
+                [usar meu arquivo]
+              </button>
+            </div>
+            <p className={soundError ? 'term-err' : 'term-dim'}>{soundError || '    mp3, ogg ou wav, até 2 mb'}</p>
+          </>
+        )}
 
         <p className="term-dim">─ disfarce</p>
         <label className="term-field">

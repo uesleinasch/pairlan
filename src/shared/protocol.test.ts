@@ -30,13 +30,26 @@ describe('parseWire', () => {
       { t: 'input', input: { kind: 'key', code: 'KeyA', down: false } },
       { t: 'p2p-hello', addr: 'fc:b3:aa:bc:44:ff' },
       { t: 'p2p-start' },
-      { t: 'p2p-stop' }
+      { t: 'p2p-stop' },
+      { t: 'alert', level: 'yellow' },
+      { t: 'alert', level: 'red' },
+      { t: 'shake' },
+      { t: 'alert-seen' },
+      { t: 'chat', msg: { id: '2', from: 'a', fromName: 'Ana', text: 'oi', ts: 1, topic: 't1' } },
+      { t: 'topic', topic: { id: 't1', title: 'deploy sexta', createdBy: 'a', createdAt: 1, updatedAt: 2, expiresAt: null } },
+      { t: 'topic', topic: { ...{ id: 't1', title: 'deploy sexta', createdBy: 'a', createdAt: 1, updatedAt: 2, expiresAt: null }, expiresAt: 99 } },
+      { t: 'topic-delete', id: 't1' },
+      { t: 'topics', topics: [{ id: 't1', title: 'deploy sexta', createdBy: 'a', createdAt: 1, updatedAt: 2, expiresAt: null }], deleted: ['t2'] }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
 
   it('rejects malformed input', () => {
     expect(parseWire('not json')).toBeNull()
+    expect(parseWire('{"t":"chat","msg":{"id":"1","from":"a","fromName":"A","text":"x","ts":1,"topic":"../x"}}')).toBeNull()
+    expect(parseWire('{"t":"topic","topic":{"id":"t","title":"  ","createdBy":"a","createdAt":1,"updatedAt":1,"expiresAt":null}}')).toBeNull()
+    expect(parseWire('{"t":"topic-delete","id":""}')).toBeNull()
+    expect(parseWire('{"t":"topics","topics":[{"id":"bad id"}],"deleted":["ok",3]}')).toEqual({ t: 'topics', topics: [], deleted: ['ok'] })
     expect(parseWire('null')).toBeNull()
     expect(parseWire('{"t":"nope"}')).toBeNull()
     expect(parseWire('{"t":"p2p-hello","addr":"FC:B3:AA:BC:44:FF"}')).toBeNull()
@@ -58,6 +71,8 @@ describe('parseWire', () => {
     expect(parseWire('{"t":"laser","x":1.2,"y":0,"click":false}')).toBeNull()
     expect(parseWire('{"t":"laser","x":0.5,"y":0.5}')).toBeNull()
     expect(parseWire('{"t":"control-state"}')).toBeNull()
+    expect(parseWire('{"t":"alert","level":"green"}')).toBeNull()
+    expect(parseWire('{"t":"alert"}')).toBeNull()
     expect(parseWire('{"t":"input","input":{"kind":"move","x":-1,"y":0}}')).toBeNull()
     expect(parseWire('{"t":"input","input":{"kind":"scroll","dx":0,"dy":500}}')).toBeNull()
     expect(parseWire('{"t":"input","input":{"kind":"key","code":"KeyA"}}')).toBeNull()

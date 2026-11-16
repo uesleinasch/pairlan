@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { LinkStatus } from '../../shared/api'
+import { ALERT_LABEL, outgoingText, type AlertKind, type OutgoingAlert } from './alerts'
 
 type Props = {
   status: LinkStatus
@@ -6,7 +8,13 @@ type Props = {
   outgoing: string[]
   onToggleSearch: () => void
   onOpenSettings: () => void
+  alert: OutgoingAlert | null
+  onAlert: (kind: AlertKind) => void
+  notesCount: number
+  onOpenNotes: () => void
 }
+
+const ALERT_ICON: Record<AlertKind, string> = { yellow: 'warning', red: 'error', shake: 'vibration' }
 
 const STATUS_ICON: Record<LinkStatus['state'], string> = {
   idle: 'wifi_find',
@@ -14,7 +22,8 @@ const STATUS_ICON: Record<LinkStatus['state'], string> = {
   connected: 'link'
 }
 
-export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenSettings }: Props) {
+export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenSettings, alert, onAlert, notesCount, onOpenNotes }: Props) {
+  const [alertMenu, setAlertMenu] = useState(false)
   const title = status.state === 'connected' ? status.peer.name : 'PairLAN'
   const base =
     status.state === 'connected'
@@ -24,7 +33,8 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
         : searching
           ? 'Procurando o par na rede…'
           : 'Busca pausada'
-  const subtitle = outgoing.length ? `${base} · transmitindo ${outgoing.join(', ')}` : base
+  const withMedia = outgoing.length ? `${base} · transmitindo ${outgoing.join(', ')}` : base
+  const subtitle = alert && status.state === 'connected' ? `${withMedia} · ${outgoingText(alert, status.peer.name)}` : withMedia
 
   return (
     <header className="top-app-bar">
@@ -47,6 +57,39 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
             <md-icon>{searching ? 'search_off' : 'wifi_find'}</md-icon>
           </md-icon-button>
         )}
+        {status.state === 'connected' && (
+          <span className="alert-anchor">
+            <md-icon-button
+              id="alert-button"
+              className={alert ? `alert-button ${alert.seen ? 'seen' : alert.kind}` : 'alert-button'}
+              onClick={() => setAlertMenu((open) => !open)}
+              aria-label="Chamar atenção do par"
+              title="Chamar atenção do par"
+              aria-haspopup="menu"
+              aria-expanded={alertMenu}
+            >
+              <md-icon>{alert?.seen ? 'check_circle' : 'campaign'}</md-icon>
+            </md-icon-button>
+            <md-menu anchor="alert-button" positioning="fixed" open={alertMenu} onclosed={() => setAlertMenu(false)}>
+              {(['yellow', 'red', 'shake'] as const).map((kind) => (
+                <md-menu-item key={kind} className={`alert-item ${kind}`} onClick={() => onAlert(kind)}>
+                  <md-icon slot="start">{ALERT_ICON[kind]}</md-icon>
+                  <div slot="headline">{ALERT_LABEL[kind]}</div>
+                </md-menu-item>
+              ))}
+            </md-menu>
+          </span>
+        )}
+        <span className="badge-anchor">
+          <md-icon-button onClick={onOpenNotes} aria-label={`Notas (${notesCount})`} title="Notas">
+            <md-icon>bookmarks</md-icon>
+          </md-icon-button>
+          {notesCount > 0 && (
+            <span className="badge type-label-small" aria-hidden="true">
+              {notesCount > 99 ? '99+' : notesCount}
+            </span>
+          )}
+        </span>
         <md-icon-button onClick={onOpenSettings} aria-label="Configurações" title="Configurações">
           <md-icon>settings</md-icon>
         </md-icon-button>

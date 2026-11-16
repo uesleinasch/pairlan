@@ -39,6 +39,11 @@ Chat e compartilhamento de tela para pair programming. É feito para duas pessoa
   - A notificação de mensagem nova vira "Terminal — Comando concluído".
   - Liga em Configurações, no menu da bandeja ou com `/tema` (que também desliga).
 - Modo discreto: ícone na bandeja com contador, janela transparente (30–100%), "sempre no topo". Notificação de mensagem nova só aparece com a janela minimizada ou na bandeja (dá para desligar).
+- Som ao receber mensagem quando a janela não está em foco (ligado por padrão). Escolha um som do sistema, um bipe ou seu próprio mp3/ogg/wav em Configurações → Som.
+- Chamar atenção do par: alerta amarelo ou vermelho (a janela dele pulsa na cor até ele interagir) ou chacoalhar a janela, como no MSN. Você vê quando ele viu. No modo terminal: `/alerta [vermelho]` e `/chacoalhar`.
+- Notas: clique com o botão direito numa mensagem para salvar nas notas ou marcar como hit vermelho, amarelo ou verde (os mais importantes ficam no topo). A tela de Notas tem busca, filtro por cor e comentário em cada nota. As notas ficam só no seu PC e continuam lá mesmo se você apagar o histórico. No modo terminal: `/salvar [cor]` e `/notas [busca]`.
+- Tópicos: além do Geral, crie conversas separadas por assunto, como no WhatsApp. Os dois PCs veem os mesmos tópicos. Um tópico pode ser temporário (apaga sozinho em 1 hora, 1 dia, 7 dias ou 30 dias), ser salvo em um arquivo `.md` ou ser apagado nos dois PCs. No modo terminal, os tópicos viram janelas do tmux: `/topicos`, `/topico n`, `/topico novo nome [1d]` e `alt+0..9`.
+- Caixa de texto: o botão Aa abre o modo formatado, com negrito, itálico, riscado, listas, código e link. A mensagem vai como markdown e aparece formatada na bolha.
 
 ## Interface
 

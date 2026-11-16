@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { AppConfig, InternetContact } from '../shared/api'
 import { isP2pAddress } from '../shared/protocol'
 import { isPublicKey, normalizeRelayUrl, normalizeUsername } from '../shared/relay'
+import { isCustomSoundName, isSoundChoice } from './sounds'
 
 export const DISCOVERY_PORT = 47800
 export const LINK_PORT = 47801
@@ -68,8 +69,15 @@ export function normalizeConfig(raw: Partial<AppConfig>): AppConfig {
     wifiDirectPeer: isP2pAddress(raw.wifiDirectPeer) ? raw.wifiDirectPeer : '',
     relayUrl: normalizeRelayUrl(raw.relayUrl) ?? '',
     internetUser: normalizeUsername(raw.internetUser) ?? '',
-    internetPeer: cleanContact(raw.internetPeer)
+    internetPeer: cleanContact(raw.internetPeer),
+    ...cleanSound(raw)
   }
+}
+
+function cleanSound(raw: Partial<AppConfig>): Pick<AppConfig, 'notifySound' | 'sound' | 'soundCustomName'> {
+  const soundCustomName = isCustomSoundName(raw.soundCustomName) ? raw.soundCustomName : ''
+  const sound = isSoundChoice(raw.sound) && (raw.sound !== 'custom' || soundCustomName) ? raw.sound : ''
+  return { notifySound: raw.notifySound !== false, sound, soundCustomName }
 }
 
 export class ConfigStore {

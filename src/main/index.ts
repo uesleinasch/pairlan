@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import {
   app,
   BrowserWindow,
@@ -13,18 +14,23 @@ import {
   shell,
   type MenuItemConstructorOptions
 } from 'electron'
-import type { ActionResult, AppConfig, InternetStatus } from '../shared/api'
-import { isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
+import type { ActionResult, AppConfig, ExportResult, InternetStatus, SoundOption } from '../shared/api'
+import { isTopicId } from '../shared/topics'
+import { isAlertLevel, isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
+import { shakeWindow, Throttle } from './attention'
 import { normalizeUsername, type RelayIceServer } from '../shared/relay'
 import { ConfigStore, DISCOVERY_PORT, relayUrlOf, runtimeOptions, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
+import { NoteStore } from './notes'
+import { exportFileName, TopicStore, topicMarkdown } from './topics'
 import { fingerprint, loadIdentity } from './identity'
 import { LaserOverlay } from './laser-overlay'
 import { iceMatchesPeer, parseAddress, PeerLink } from './peer-link'
 import { lookupUser, registerUser, RelayDialer, releaseUser } from './relay-link'
 import { RemoteControl } from './remote-control'
+import { CUSTOM_SOUND_EXTS, importCustomSound, listSystemSounds, resolveSound, soundDataUrl } from './sounds'
 import { PortalCancelled, RemoteDesktop } from './remote-desktop'
 import { SystemAudioSource } from './system-audio'
 import { AppTray, resourcePath } from './tray'
@@ -103,7 +109,10 @@ function createWindow(alwaysOnTop: boolean, look: WindowLook): BrowserWindow {
   w.setContentProtection(true)
   w.webContents.on('will-navigate', (e) => e.preventDefault())
   w.on('page-title-updated', (e) => e.preventDefault())
-  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  w.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
   w.once('ready-to-show', () => {
     w.show()
     w.setAlwaysOnTop(alwaysOnTop)
@@ -126,6 +135,10 @@ async function boot(): Promise<void> {
   const userData = app.getPath('userData')
   const config = new ConfigStore(userData)
   const history = new History(join(userData, 'history.jsonl'))
+  const notes = new NoteStore(join(userData, 'notes.json'))
+  const topics = new TopicStore(join(userData, 'topics.json'))
+  let activeTopic: string | null = null
+  const exported = new Set<string>()
   const self = (): PeerInfo => ({ id: config.get().id, name: config.get().name })
   const applyLook = (c: AppConfig) => {
     const look = windowLook(c)
@@ -181,15 +194,24 @@ async function boot(): Promise<void> {
   const tray = new AppTray({ toggleWindow, quit: () => app.quit(), extraItems: trayItems })
   tray.setTerminal(config.get().terminalMode)
 
+  let lastSound = 0
+  const playSound = () => {
+    const now = Date.now()
+    if (!config.get().notifySound || now - lastSound < 1500) return
+    lastSound = now
+    send('sound:play')
+  }
+
   const notifyIncoming = (msg: ChatMessage) => {
     if (win?.isVisible() && win.isFocused()) return
     tray.addUnread()
+    playSound()
     const minimized = !win || !win.isVisible() || win.isMinimized()
     if (!minimized || !config.get().notifyMinimized || !Notification.isSupported()) return
     const notification = config.get().terminalMode
       ? new Notification({ title: 'Terminal', body: 'Comando concluído' })
       : new Notification({
-          title: msg.fromName,
+          title: msg.topic && topics.get(msg.topic) ? `${msg.fromName} · #${topics.get(msg.topic)?.title}` : msg.fromName,
           body: msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
         })
     notification.on('click', () => {
@@ -197,6 +219,16 @@ async function boot(): Promise<void> {
       win?.focus()
     })
     notification.show()
+  }
+
+  const alertGate = new Throttle(2000)
+  const shakeGate = new Throttle(2000)
+  const callAttention = () => {
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    else if (!win.isVisible()) win.showInactive()
+    win.flashFrame(true)
+    if (config.get().notifySound) send('sound:play')
   }
 
   const link = new PeerLink(self(), runtime.linkPort)
@@ -261,6 +293,7 @@ async function boot(): Promise<void> {
     history,
     dir: join(app.getPath('downloads'), runtime.profile ? `PairLAN-${runtime.profile}` : 'PairLAN'),
     self,
+    topic: () => activeTopic,
     onMessage: (msg) => {
       send('chat:message', msg)
       notifyIncoming(msg)
@@ -286,9 +319,28 @@ async function boot(): Promise<void> {
   }
   portal.on('closed', () => setControl(false))
 
+  const pushTopics = () => send('topics:changed', topics.list())
+  const forgetTopic = (id: string) => {
+    history.removeTopic(id)
+    if (activeTopic === id) activeTopic = null
+    send('topics:removed', id)
+  }
+  const dropTopic = (id: string, tellPeer: boolean) => {
+    topics.remove(id)
+    forgetTopic(id)
+    pushTopics()
+    if (tellPeer) link.send({ t: 'topic-delete', id })
+  }
+  const expireTopics = () => {
+    for (const id of topics.expired()) dropTopic(id, false)
+  }
+  expireTopics()
+  setInterval(expireTopics, 30_000)
+
   link.on('status', (status) => {
     if (status.state === 'connected') {
       link.send({ t: 'presence', liveAudio: config.get().liveAudio })
+      link.send({ t: 'topics', topics: topics.list(), deleted: topics.deletedIds() })
       const own = wifi.status().self
       if (own) link.send({ t: 'p2p-hello', addr: own })
     } else {
@@ -352,6 +404,34 @@ async function boot(): Promise<void> {
         applyConfig({ wifiDirectPeer: '' })
         void wifi.stop()
         break
+      case 'alert':
+        if (!alertGate.take()) break
+        callAttention()
+        send('alert:incoming', m.level)
+        break
+      case 'shake':
+        if (!shakeGate.take()) break
+        callAttention()
+        setTimeout(() => win && shakeWindow(win), 150)
+        send('alert:shake')
+        break
+      case 'alert-seen':
+        send('alert:seen')
+        break
+      case 'topic':
+        if (topics.upsert(m.topic)) pushTopics()
+        break
+      case 'topic-delete':
+        if (topics.get(m.id)) dropTopic(m.id, false)
+        else topics.remove(m.id)
+        break
+      case 'topics': {
+        const { changed, removed } = topics.sync(m.topics, m.deleted)
+        removed.forEach(forgetTopic)
+        if (changed) pushTopics()
+        expireTopics()
+        break
+      }
     }
   })
   await link.start().catch((err) => console.error('[link] porta ocupada?', err.message))
@@ -437,7 +517,8 @@ async function boot(): Promise<void> {
     config: config.get(),
     status: link.status(),
     searching: discovery.isRunning(),
-    history: history.load(),
+    history: history.load(2000),
+    topics: topics.list(),
     wifiDirect: wifi.status(),
     internet: internetStatus(),
     iceServers: iceForRenderer()
@@ -477,12 +558,59 @@ async function boot(): Promise<void> {
   ipcMain.handle('chat:send', (_e, text: unknown) => {
     if (typeof text !== 'string' || !text.trim() || !link.isConnected()) return null
     const msg: ChatMessage = { id: randomUUID(), from: self().id, fromName: self().name, text, ts: Date.now() }
+    if (activeTopic) msg.topic = activeTopic
     if (!link.send({ t: 'chat', msg })) return null
     history.append(msg)
     return msg
   })
 
   ipcMain.handle('history:clear', () => history.clear())
+
+  const shareTopic = (topic: ReturnType<typeof topics.get> | null) => {
+    if (!topic) return null
+    link.send({ t: 'topic', topic })
+    pushTopics()
+    return topic
+  }
+  ipcMain.handle('topics:create', (_e, title: unknown, duration: unknown) => shareTopic(topics.create(title, duration ?? null, self().id)))
+  ipcMain.handle('topics:rename', (_e, id: unknown, title: unknown) => shareTopic(topics.rename(id, title)))
+  ipcMain.handle('topics:expiry', (_e, id: unknown, duration: unknown) => shareTopic(topics.setExpiry(id, duration ?? null)))
+  ipcMain.handle('topics:delete', (_e, id: unknown) => {
+    if (isTopicId(id) && topics.get(id)) dropTopic(id, true)
+  })
+  ipcMain.on('topics:active', (_e, id: unknown) => {
+    activeTopic = isTopicId(id) && topics.get(id) ? id : null
+  })
+  ipcMain.handle('topics:export', async (_e, id: unknown): Promise<ExportResult> => {
+    const topic = id === null ? null : topics.get(id)
+    if (id !== null && !topic) return { ok: false, error: 'Esse tópico não existe mais.' }
+    const now = Date.now()
+    const dir = join(app.getPath('documents'), 'PairLAN')
+    const options = { defaultPath: join(dir, exportFileName(topic ?? null, now)), filters: [{ name: 'Markdown', extensions: ['md'] }] }
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return { ok: false, error: null }
+    const status = link.status()
+    const peerName = status.state === 'connected' ? status.peer.name : (config.get().internetPeer?.username ?? '')
+    const messages = history.load(Number.MAX_SAFE_INTEGER).filter((m) => (topic ? m.topic === topic.id : !m.topic || !topics.get(m.topic)))
+    try {
+      await mkdir(dirname(result.filePath), { recursive: true })
+      await writeFile(result.filePath, topicMarkdown(topic ?? null, messages, peerName, now))
+    } catch {
+      return { ok: false, error: 'Não deu para salvar o arquivo.' }
+    }
+    exported.add(result.filePath)
+    return { ok: true, path: result.filePath }
+  })
+  ipcMain.on('topics:reveal', (_e, path: unknown) => {
+    if (typeof path === 'string' && exported.has(path)) shell.showItemInFolder(path)
+  })
+
+  ipcMain.handle('notes:list', () => notes.list())
+  ipcMain.handle('notes:save', (_e, msg: unknown, hit: unknown) => notes.save(msg, hit ?? null))
+  ipcMain.handle('notes:hit', (_e, id: unknown, hit: unknown) => notes.setHit(id, hit ?? null))
+  ipcMain.handle('notes:comment', (_e, id: unknown, comment: unknown) => notes.setComment(id, comment))
+  ipcMain.handle('notes:remove', (_e, id: unknown) => notes.remove(id))
+  ipcMain.handle('notes:restore', (_e, note: unknown) => notes.restore(note))
 
   ipcMain.on('chat:typing', () => link.send({ t: 'typing' }))
 
@@ -521,6 +649,15 @@ async function boot(): Promise<void> {
 
   ipcMain.on('control:request', () => link.send({ t: 'control-request' }))
 
+  ipcMain.on('alert:send', (_e, level: unknown) => {
+    if (isAlertLevel(level)) link.send({ t: 'alert', level })
+  })
+  ipcMain.on('alert:shake', () => link.send({ t: 'shake' }))
+  ipcMain.on('alert:ack', () => {
+    win?.flashFrame(false)
+    link.send({ t: 'alert-seen' })
+  })
+
   ipcMain.on('input:send', (_e, input: unknown) => {
     const parsed = parseInput(input)
     if (parsed) link.send({ t: 'input', input: parsed })
@@ -545,6 +682,34 @@ async function boot(): Promise<void> {
   })
 
   ipcMain.handle('config:set', (_e, patch: Partial<AppConfig>) => applyConfig(patch ?? {}))
+
+  const soundsDir = join(userData, 'sounds')
+  ipcMain.handle('sound:list', (): SoundOption[] => {
+    const custom = config.get().soundCustomName
+    return [
+      { id: '', label: 'Padrão' },
+      { id: 'beep', label: 'Bipe' },
+      ...listSystemSounds(),
+      ...(custom ? [{ id: 'custom', label: `Meu som: ${custom}` }] : [])
+    ]
+  })
+  ipcMain.handle('sound:data', () => {
+    const c = config.get()
+    return soundDataUrl(resolveSound(c.sound, c.soundCustomName, soundsDir))
+  })
+  ipcMain.handle('sound:pick', async (): Promise<ActionResult> => {
+    if (!win) return { ok: false, error: 'Janela fechada.' }
+    const picked = await dialog.showOpenDialog(win, {
+      title: 'Escolher som',
+      properties: ['openFile'],
+      filters: [{ name: 'Áudio', extensions: CUSTOM_SOUND_EXTS }]
+    })
+    if (picked.canceled || !picked.filePaths[0]) return { ok: true }
+    const result = importCustomSound(picked.filePaths[0], soundsDir)
+    if (!result.ok) return result
+    applyConfig({ sound: 'custom', soundCustomName: result.name })
+    return { ok: true }
+  })
 
   ipcMain.handle('file:pick', async () => {
     if (!win || !link.isConnected()) return []

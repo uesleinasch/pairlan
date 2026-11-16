@@ -1,3 +1,5 @@
+import { isTopic, isTopicId, type Topic } from './topics'
+
 export const PROTOCOL_VERSION = 1
 
 export type PeerInfo = { id: string; name: string }
@@ -13,6 +15,7 @@ export type ChatMessage = {
   text: string
   ts: number
   attachment?: Attachment
+  topic?: string
 }
 
 export type IceCandidate = {
@@ -39,6 +42,10 @@ export type SignalPayload = SignalBase &
 
 export const channelOf = (p: SignalPayload): MediaChannel => p.channel ?? 'screen'
 
+export type AlertLevel = 'yellow' | 'red'
+
+export const isAlertLevel = (v: unknown): v is AlertLevel => v === 'yellow' || v === 'red'
+
 export type WireMessage =
   | { t: 'hello'; v: number; peer: PeerInfo }
   | { t: 'chat'; msg: ChatMessage }
@@ -57,6 +64,12 @@ export type WireMessage =
   | { t: 'p2p-hello'; addr: string }
   | { t: 'p2p-start' }
   | { t: 'p2p-stop' }
+  | { t: 'alert'; level: AlertLevel }
+  | { t: 'shake' }
+  | { t: 'alert-seen' }
+  | { t: 'topic'; topic: Topic }
+  | { t: 'topic-delete'; id: string }
+  | { t: 'topics'; topics: Topic[]; deleted: string[] }
 
 export type RemoteInput =
   | { kind: 'move'; x: number; y: number }
@@ -96,7 +109,8 @@ export function isChatMessage(v: unknown): v is ChatMessage {
     isString(v.fromName) &&
     isString(v.text) &&
     typeof v.ts === 'number' &&
-    (v.attachment === undefined || isAttachment(v.attachment))
+    (v.attachment === undefined || isAttachment(v.attachment)) &&
+    (v.topic === undefined || isTopicId(v.topic))
   )
 }
 
@@ -185,6 +199,20 @@ export function parseWire(raw: string): WireMessage | null {
       return { t: 'p2p-start' }
     case 'p2p-stop':
       return { t: 'p2p-stop' }
+    case 'alert':
+      return isAlertLevel(data.level) ? { t: 'alert', level: data.level } : null
+    case 'shake':
+      return { t: 'shake' }
+    case 'alert-seen':
+      return { t: 'alert-seen' }
+    case 'topic':
+      return isTopic(data.topic) ? { t: 'topic', topic: data.topic } : null
+    case 'topic-delete':
+      return isTopicId(data.id) ? { t: 'topic-delete', id: data.id } : null
+    case 'topics':
+      return Array.isArray(data.topics) && Array.isArray(data.deleted) && data.topics.length <= 500 && data.deleted.length <= 2000
+        ? { t: 'topics', topics: data.topics.filter(isTopic), deleted: data.deleted.filter(isTopicId) }
+        : null
     default:
       return null
   }

@@ -103,3 +103,25 @@ describe('internet config', () => {
     expect(normalizeConfig({ relayUrl: 'http://127.0.0.1:8787' }).relayUrl).toBe('http://127.0.0.1:8787')
   })
 })
+
+describe('notification sound', () => {
+  it('is on with the default sound for old configs', () => {
+    expect(normalizeConfig({})).toMatchObject({ notifySound: true, sound: '', soundCustomName: '' })
+    expect(normalizeConfig({ notifySound: false }).notifySound).toBe(false)
+  })
+
+  it('keeps only known sound choices', () => {
+    expect(normalizeConfig({ sound: 'beep' }).sound).toBe('beep')
+    expect(normalizeConfig({ sound: 'freedesktop/bell.oga' }).sound).toBe('freedesktop/bell.oga')
+    for (const bad of ['freedesktop/../../etc/passwd', 'nada/bell.oga', '/usr/share/sounds/x.oga', 'freedesktop/bell.txt', 7]) {
+      expect(normalizeConfig({ sound: bad as never }).sound, String(bad)).toBe('')
+    }
+  })
+
+  it('needs a custom file name for the custom sound', () => {
+    expect(normalizeConfig({ sound: 'custom' }).sound).toBe('')
+    expect(normalizeConfig({ sound: 'custom', soundCustomName: 'plim.mp3' })).toMatchObject({ sound: 'custom', soundCustomName: 'plim.mp3' })
+    expect(normalizeConfig({ sound: 'custom', soundCustomName: '../plim.mp3' }).sound).toBe('')
+    expect(normalizeConfig({ sound: 'custom', soundCustomName: 'plim.exe' }).sound).toBe('')
+  })
+})

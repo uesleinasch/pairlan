@@ -1,4 +1,6 @@
-import type { ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
+import type { HitLevel, Note } from './notes'
+import type { Topic, TopicDuration } from './topics'
+import type { AlertLevel, ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
 
 export type AppConfig = {
   id: string
@@ -15,7 +17,12 @@ export type AppConfig = {
   relayUrl: string
   internetUser: string
   internetPeer: InternetContact | null
+  notifySound: boolean
+  sound: string
+  soundCustomName: string
 }
+
+export type SoundOption = { id: string; label: string }
 
 export type InternetContact = { username: string; publicKey: string }
 
@@ -32,6 +39,8 @@ export type InternetStatus = {
 }
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
+
+export type ExportResult = { ok: true; path: string } | { ok: false; error: string | null }
 
 export type IceServer = { urls: string | string[]; username?: string; credential?: string }
 
@@ -57,6 +66,7 @@ export type InitialState = {
   status: LinkStatus
   searching: boolean
   history: ChatMessage[]
+  topics: Topic[]
   wifiDirect: WifiDirectStatus
   internet: InternetStatus
   iceServers: IceServer[]
@@ -119,4 +129,29 @@ export type PairlanApi = {
   removeInternetPeer(): void
   onInternet(cb: (status: InternetStatus) => void): Unsubscribe
   onIceServers(cb: (servers: IceServer[]) => void): Unsubscribe
+  listSounds(): Promise<SoundOption[]>
+  soundData(): Promise<string | null>
+  pickSound(): Promise<ActionResult>
+  onPlaySound(cb: () => void): Unsubscribe
+  sendAlert(level: AlertLevel): void
+  sendShake(): void
+  ackAlert(): void
+  onAlert(cb: (level: AlertLevel) => void): Unsubscribe
+  onShake(cb: () => void): Unsubscribe
+  onAlertSeen(cb: () => void): Unsubscribe
+  listNotes(): Promise<Note[]>
+  saveNote(msg: ChatMessage, hit?: HitLevel | null): Promise<Note[]>
+  setNoteHit(id: string, hit: HitLevel | null): Promise<Note[]>
+  setNoteComment(id: string, comment: string): Promise<Note[]>
+  removeNote(id: string): Promise<Note[]>
+  restoreNote(note: Note): Promise<Note[]>
+  createTopic(title: string, duration: TopicDuration | null): Promise<Topic | null>
+  renameTopic(id: string, title: string): Promise<Topic | null>
+  setTopicExpiry(id: string, duration: TopicDuration | null): Promise<Topic | null>
+  deleteTopic(id: string): Promise<void>
+  setActiveTopic(id: string | null): void
+  exportTopic(id: string | null): Promise<ExportResult>
+  revealExport(path: string): void
+  onTopics(cb: (topics: Topic[]) => void): Unsubscribe
+  onTopicRemoved(cb: (id: string) => void): Unsubscribe
 }

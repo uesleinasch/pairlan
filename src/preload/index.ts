@@ -52,7 +52,32 @@ const api: PairlanApi = {
   addInternetPeer: (username) => ipcRenderer.invoke('internet:add-peer', username),
   removeInternetPeer: () => ipcRenderer.send('internet:remove-peer'),
   onInternet: (cb) => listen('internet:status', cb),
-  onIceServers: (cb) => listen('rtc:ice-servers', cb)
+  onIceServers: (cb) => listen('rtc:ice-servers', cb),
+  listSounds: () => ipcRenderer.invoke('sound:list'),
+  soundData: () => ipcRenderer.invoke('sound:data'),
+  pickSound: () => ipcRenderer.invoke('sound:pick'),
+  onPlaySound: (cb) => listen('sound:play', () => cb()),
+  sendAlert: (level) => ipcRenderer.send('alert:send', level),
+  sendShake: () => ipcRenderer.send('alert:shake'),
+  ackAlert: () => ipcRenderer.send('alert:ack'),
+  onAlert: (cb) => listen('alert:incoming', cb),
+  onShake: (cb) => listen('alert:shake', () => cb()),
+  onAlertSeen: (cb) => listen('alert:seen', () => cb()),
+  listNotes: () => ipcRenderer.invoke('notes:list'),
+  saveNote: (msg, hit = null) => ipcRenderer.invoke('notes:save', msg, hit),
+  setNoteHit: (id, hit) => ipcRenderer.invoke('notes:hit', id, hit),
+  setNoteComment: (id, comment) => ipcRenderer.invoke('notes:comment', id, comment),
+  removeNote: (id) => ipcRenderer.invoke('notes:remove', id),
+  restoreNote: (note) => ipcRenderer.invoke('notes:restore', note),
+  createTopic: (title, duration) => ipcRenderer.invoke('topics:create', title, duration),
+  renameTopic: (id, title) => ipcRenderer.invoke('topics:rename', id, title),
+  setTopicExpiry: (id, duration) => ipcRenderer.invoke('topics:expiry', id, duration),
+  deleteTopic: (id) => ipcRenderer.invoke('topics:delete', id),
+  setActiveTopic: (id) => ipcRenderer.send('topics:active', id),
+  exportTopic: (id) => ipcRenderer.invoke('topics:export', id),
+  revealExport: (path) => ipcRenderer.send('topics:reveal', path),
+  onTopics: (cb) => listen('topics:changed', cb),
+  onTopicRemoved: (cb) => listen('topics:removed', cb)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)
