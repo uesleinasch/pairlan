@@ -1,8 +1,15 @@
 # PairLAN
 
-Chat e compartilhamento de tela para pair programming, 100% em rede local. É feito para duas pessoas: não tem senha nem servidor, e nada sai da LAN.
+Chat e compartilhamento de tela para pair programming. É feito para duas pessoas. Na rede local não tem senha nem servidor, e nada sai da LAN. Fora dela, o modo internet (opcional) liga o par por um relay no Cloudflare, cifrado ponta a ponta.
 
 - O par é achado sozinho na rede (broadcast UDP). Se isso falhar, dá para digitar o IP.
+- Modo internet (home office): cada um registra um nome de usuário em Configurações → Internet e adiciona o do par uma vez (ou `/usuario` e `/par` no modo terminal).
+  - A conexão só abre quando os dois se adicionaram. O app guarda o par e religa sozinho ao abrir.
+  - Chat, anexos e sinalização vão cifrados ponta a ponta (Ed25519 + X25519 + AES-256-GCM). O relay só repassa bytes.
+  - Cada um vê um código de 24 dígitos do outro. Confiram na call: o "código do par" de um tem que ser igual ao "seu código" do outro.
+  - Tela e voz vão direto via STUN. Se o NAT bloquear, passam pelo TURN do Cloudflare.
+  - Se os dois estiverem na mesma rede, a LAN tem prioridade e o relay pausa.
+  - Configurar o servidor (grátis): [docs/internet/cloudflare-setup.html](docs/internet/cloudflare-setup.html).
 - O chat aceita blocos de código com ` ``` `, mostra quando o outro está digitando e guarda o histórico. Dá para apagar o histórico em Configurações (ou `/apagar` no modo terminal). Só apaga deste PC; os arquivos recebidos ficam na pasta.
 - Anexos: botão 📎, arrastar ou colar (inclusive print da área de transferência). Até 500 MB por arquivo. O que chega vai para `~/Downloads/PairLAN`.
 - Walkie-talkie: segure 🎙 ou **Ctrl+Espaço** para falar e solte para encerrar. Quando o bipe toca, o canal está no ar.
@@ -76,6 +83,8 @@ sudo ufw allow from 192.168.0.0/16 proto udp
 
 O app só aceita conexões vindas de IP privado (10/8, 172.16/12, 192.168/16, 169.254/16).
 
+O modo internet só faz conexões de saída: `wss://` (443/tcp) para o relay, STUN em `stun.cloudflare.com:3478/udp` e TURN em `turn.cloudflare.com` (3478, 443, 5349). Não precisa abrir porta.
+
 Em Wi-Fi corporativo com isolamento de clientes, nada passa. Nesse caso use cabo ou outra rede.
 
 ## Desenvolver
@@ -96,5 +105,17 @@ Também dá para subir cada uma na mão:
 PAIRLAN_PROFILE=a npm run dev
 PAIRLAN_PROFILE=b PAIRLAN_PORT_OFFSET=1 npm run dev
 ```
+
+### Relay (modo internet)
+
+O relay fica em `relay/` (Cloudflare Worker + Durable Objects). Para testar sem Cloudflare:
+
+```bash
+cd relay && npm install && npm run dev        # relay local em http://127.0.0.1:8787
+PAIRLAN_RELAY_TEST_URL=http://127.0.0.1:8787 npx vitest run src/main/relay-link.test.ts
+PAIRLAN_NO_LAN=1 MAIN_VITE_RELAY_URL=http://127.0.0.1:8787 npm run pair
+```
+
+`PAIRLAN_NO_LAN=1` não liga a descoberta nem o IP manual ao abrir, para forçar o caminho pela internet. O deploy de verdade está em [docs/internet/cloudflare-setup.html](docs/internet/cloudflare-setup.html).
 
 O fluxo de branches e releases está em [CONTRIBUTING.md](CONTRIBUTING.md).

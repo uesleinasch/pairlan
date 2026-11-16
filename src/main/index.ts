@@ -369,8 +369,10 @@ async function boot(): Promise<void> {
     const manual = parseAddress(config.get().manualPeer, runtime.linkPort)
     if (manual) link.connectTo(manual.address, manual.port)
   }
-  discovery.start()
-  dialManualPeer()
+  if (runtime.lan) {
+    discovery.start()
+    dialManualPeer()
+  }
   configureRelay()
 
   let wifiOn = false

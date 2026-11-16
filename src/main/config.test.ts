@@ -16,10 +16,11 @@ describe('clampOpacity', () => {
 
 describe('runtimeOptions', () => {
   it('reads profile and port offset', () => {
-    expect(runtimeOptions({})).toEqual({ profile: null, linkPort: LINK_PORT })
-    expect(runtimeOptions({ PAIRLAN_PROFILE: 'b/../x', PAIRLAN_PORT_OFFSET: '1' })).toEqual({
+    expect(runtimeOptions({})).toEqual({ profile: null, linkPort: LINK_PORT, lan: true })
+    expect(runtimeOptions({ PAIRLAN_PROFILE: 'b/../x', PAIRLAN_PORT_OFFSET: '1', PAIRLAN_NO_LAN: '1' })).toEqual({
       profile: 'bx',
-      linkPort: LINK_PORT + 1
+      linkPort: LINK_PORT + 1,
+      lan: false
     })
   })
 })

@@ -15,12 +15,12 @@ export function clampOpacity(value: unknown): number {
   return Math.round(Math.min(1, Math.max(MIN_OPACITY, n)) * 100) / 100
 }
 
-export type RuntimeOptions = { profile: string | null; linkPort: number }
+export type RuntimeOptions = { profile: string | null; linkPort: number; lan: boolean }
 
 export function runtimeOptions(env: NodeJS.ProcessEnv): RuntimeOptions {
   const profile = env.PAIRLAN_PROFILE?.trim().replace(/[^\w-]/g, '') || null
   const offset = Number.parseInt(env.PAIRLAN_PORT_OFFSET ?? '0', 10)
-  return { profile, linkPort: LINK_PORT + (Number.isFinite(offset) ? offset : 0) }
+  return { profile, linkPort: LINK_PORT + (Number.isFinite(offset) ? offset : 0), lan: env.PAIRLAN_NO_LAN !== '1' }
 }
 
 function defaultName(): string {

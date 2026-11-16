@@ -40,3 +40,4 @@ jobs:
       - run: npm run dist -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_VITE_RELAY_URL: ${{ vars.MAIN_VITE_RELAY_URL }}
