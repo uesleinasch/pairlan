@@ -30,4 +30,14 @@ describe('History', () => {
     h.append(msg('2'))
     expect(h.load().map((m) => m.id)).toEqual(['2'])
   })
+
+  it('removes the messages of one topic', () => {
+    const h = new History(join(mkdtempSync(join(tmpdir(), 'pairlan-h-')), 'history.jsonl'))
+    h.append(msg('1'))
+    h.append({ ...msg('2'), topic: 't' })
+    h.append({ ...msg('3'), topic: 'u' })
+    expect(h.removeTopic('t')).toBe(1)
+    expect(h.removeTopic('t')).toBe(0)
+    expect(h.load().map((m) => m.id)).toEqual(['1', '3'])
+  })
 })

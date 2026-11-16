@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import {
   app,
   BrowserWindow,
@@ -13,7 +14,8 @@ import {
   shell,
   type MenuItemConstructorOptions
 } from 'electron'
-import type { ActionResult, AppConfig, InternetStatus, SoundOption } from '../shared/api'
+import type { ActionResult, AppConfig, ExportResult, InternetStatus, SoundOption } from '../shared/api'
+import { isTopicId } from '../shared/topics'
 import { isAlertLevel, isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
 import { shakeWindow, Throttle } from './attention'
@@ -22,6 +24,7 @@ import { ConfigStore, DISCOVERY_PORT, relayUrlOf, runtimeOptions, windowLook, ty
 import { Discovery, shouldInitiate } from './discovery'
 import { History } from './history'
 import { NoteStore } from './notes'
+import { exportFileName, TopicStore, topicMarkdown } from './topics'
 import { fingerprint, loadIdentity } from './identity'
 import { LaserOverlay } from './laser-overlay'
 import { iceMatchesPeer, parseAddress, PeerLink } from './peer-link'
@@ -106,7 +109,10 @@ function createWindow(alwaysOnTop: boolean, look: WindowLook): BrowserWindow {
   w.setContentProtection(true)
   w.webContents.on('will-navigate', (e) => e.preventDefault())
   w.on('page-title-updated', (e) => e.preventDefault())
-  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  w.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
   w.once('ready-to-show', () => {
     w.show()
     w.setAlwaysOnTop(alwaysOnTop)
@@ -130,6 +136,9 @@ async function boot(): Promise<void> {
   const config = new ConfigStore(userData)
   const history = new History(join(userData, 'history.jsonl'))
   const notes = new NoteStore(join(userData, 'notes.json'))
+  const topics = new TopicStore(join(userData, 'topics.json'))
+  let activeTopic: string | null = null
+  const exported = new Set<string>()
   const self = (): PeerInfo => ({ id: config.get().id, name: config.get().name })
   const applyLook = (c: AppConfig) => {
     const look = windowLook(c)
@@ -202,7 +211,7 @@ async function boot(): Promise<void> {
     const notification = config.get().terminalMode
       ? new Notification({ title: 'Terminal', body: 'Comando concluído' })
       : new Notification({
-          title: msg.fromName,
+          title: msg.topic && topics.get(msg.topic) ? `${msg.fromName} · #${topics.get(msg.topic)?.title}` : msg.fromName,
           body: msg.attachment ? `Anexo: ${msg.attachment.name}` : msg.text.slice(0, 140)
         })
     notification.on('click', () => {
@@ -284,6 +293,7 @@ async function boot(): Promise<void> {
     history,
     dir: join(app.getPath('downloads'), runtime.profile ? `PairLAN-${runtime.profile}` : 'PairLAN'),
     self,
+    topic: () => activeTopic,
     onMessage: (msg) => {
       send('chat:message', msg)
       notifyIncoming(msg)
@@ -309,9 +319,28 @@ async function boot(): Promise<void> {
   }
   portal.on('closed', () => setControl(false))
 
+  const pushTopics = () => send('topics:changed', topics.list())
+  const forgetTopic = (id: string) => {
+    history.removeTopic(id)
+    if (activeTopic === id) activeTopic = null
+    send('topics:removed', id)
+  }
+  const dropTopic = (id: string, tellPeer: boolean) => {
+    topics.remove(id)
+    forgetTopic(id)
+    pushTopics()
+    if (tellPeer) link.send({ t: 'topic-delete', id })
+  }
+  const expireTopics = () => {
+    for (const id of topics.expired()) dropTopic(id, false)
+  }
+  expireTopics()
+  setInterval(expireTopics, 30_000)
+
   link.on('status', (status) => {
     if (status.state === 'connected') {
       link.send({ t: 'presence', liveAudio: config.get().liveAudio })
+      link.send({ t: 'topics', topics: topics.list(), deleted: topics.deletedIds() })
       const own = wifi.status().self
       if (own) link.send({ t: 'p2p-hello', addr: own })
     } else {
@@ -389,6 +418,20 @@ async function boot(): Promise<void> {
       case 'alert-seen':
         send('alert:seen')
         break
+      case 'topic':
+        if (topics.upsert(m.topic)) pushTopics()
+        break
+      case 'topic-delete':
+        if (topics.get(m.id)) dropTopic(m.id, false)
+        else topics.remove(m.id)
+        break
+      case 'topics': {
+        const { changed, removed } = topics.sync(m.topics, m.deleted)
+        removed.forEach(forgetTopic)
+        if (changed) pushTopics()
+        expireTopics()
+        break
+      }
     }
   })
   await link.start().catch((err) => console.error('[link] porta ocupada?', err.message))
@@ -474,7 +517,8 @@ async function boot(): Promise<void> {
     config: config.get(),
     status: link.status(),
     searching: discovery.isRunning(),
-    history: history.load(),
+    history: history.load(2000),
+    topics: topics.list(),
     wifiDirect: wifi.status(),
     internet: internetStatus(),
     iceServers: iceForRenderer()
@@ -514,12 +558,52 @@ async function boot(): Promise<void> {
   ipcMain.handle('chat:send', (_e, text: unknown) => {
     if (typeof text !== 'string' || !text.trim() || !link.isConnected()) return null
     const msg: ChatMessage = { id: randomUUID(), from: self().id, fromName: self().name, text, ts: Date.now() }
+    if (activeTopic) msg.topic = activeTopic
     if (!link.send({ t: 'chat', msg })) return null
     history.append(msg)
     return msg
   })
 
   ipcMain.handle('history:clear', () => history.clear())
+
+  const shareTopic = (topic: ReturnType<typeof topics.get> | null) => {
+    if (!topic) return null
+    link.send({ t: 'topic', topic })
+    pushTopics()
+    return topic
+  }
+  ipcMain.handle('topics:create', (_e, title: unknown, duration: unknown) => shareTopic(topics.create(title, duration ?? null, self().id)))
+  ipcMain.handle('topics:rename', (_e, id: unknown, title: unknown) => shareTopic(topics.rename(id, title)))
+  ipcMain.handle('topics:expiry', (_e, id: unknown, duration: unknown) => shareTopic(topics.setExpiry(id, duration ?? null)))
+  ipcMain.handle('topics:delete', (_e, id: unknown) => {
+    if (isTopicId(id) && topics.get(id)) dropTopic(id, true)
+  })
+  ipcMain.on('topics:active', (_e, id: unknown) => {
+    activeTopic = isTopicId(id) && topics.get(id) ? id : null
+  })
+  ipcMain.handle('topics:export', async (_e, id: unknown): Promise<ExportResult> => {
+    const topic = id === null ? null : topics.get(id)
+    if (id !== null && !topic) return { ok: false, error: 'Esse tópico não existe mais.' }
+    const now = Date.now()
+    const dir = join(app.getPath('documents'), 'PairLAN')
+    const options = { defaultPath: join(dir, exportFileName(topic ?? null, now)), filters: [{ name: 'Markdown', extensions: ['md'] }] }
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return { ok: false, error: null }
+    const status = link.status()
+    const peerName = status.state === 'connected' ? status.peer.name : (config.get().internetPeer?.username ?? '')
+    const messages = history.load(Number.MAX_SAFE_INTEGER).filter((m) => (topic ? m.topic === topic.id : !m.topic || !topics.get(m.topic)))
+    try {
+      await mkdir(dirname(result.filePath), { recursive: true })
+      await writeFile(result.filePath, topicMarkdown(topic ?? null, messages, peerName, now))
+    } catch {
+      return { ok: false, error: 'Não deu para salvar o arquivo.' }
+    }
+    exported.add(result.filePath)
+    return { ok: true, path: result.filePath }
+  })
+  ipcMain.on('topics:reveal', (_e, path: unknown) => {
+    if (typeof path === 'string' && exported.has(path)) shell.showItemInFolder(path)
+  })
 
   ipcMain.handle('notes:list', () => notes.list())
   ipcMain.handle('notes:save', (_e, msg: unknown, hit: unknown) => notes.save(msg, hit ?? null))

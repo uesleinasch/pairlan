@@ -1,4 +1,5 @@
 import { isAttachment, type Attachment, type ChatMessage } from './protocol'
+import { isTopicId } from './topics'
 
 export type HitLevel = 'red' | 'yellow' | 'green'
 
@@ -14,6 +15,7 @@ export type Note = {
   text: string
   ts: number
   attachment?: Attachment
+  topic?: string
   savedAt: number
   hit: HitLevel | null
   comment: string
@@ -39,7 +41,8 @@ export function isNote(v: unknown): v is Note {
     (n.hit === null || isHitLevel(n.hit)) &&
     isString(n.comment) &&
     n.comment.length <= MAX_COMMENT &&
-    (n.attachment === undefined || isAttachment(n.attachment))
+    (n.attachment === undefined || isAttachment(n.attachment)) &&
+    (n.topic === undefined || isTopicId(n.topic))
   )
 }
 
@@ -56,5 +59,6 @@ export function noteFromMessage(msg: ChatMessage, id: string, savedAt: number, h
     comment: ''
   }
   if (msg.attachment) note.attachment = { ...msg.attachment }
+  if (msg.topic) note.topic = msg.topic
   return note
 }

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { HIT_LEVELS, MAX_COMMENT, type HitLevel, type Note } from '../../shared/notes'
 import { Highlight } from './Highlight'
+import { MessageText } from './MessageText'
 import { filterNotes, HIT_LABEL, hitCounts, noteBody, noteDate, type NoteFilter } from './notes'
 
 type Props = {
@@ -94,9 +95,15 @@ function NoteCard({ note, query, onShow, onHit, onComment, onRemove, onCopy }: C
           </button>
         )}
       </div>
-      <p className="note-text type-body-medium">
-        <Highlight text={noteBody(note)} query={query} />
-      </p>
+      <div className="note-text type-body-medium">
+        {note.attachment ? (
+          <p className="text">
+            <Highlight text={noteBody(note)} query={query} />
+          </p>
+        ) : (
+          <MessageText text={note.text} query={query} />
+        )}
+      </div>
       {editing ? (
         <div className="note-comment-edit">
           <md-outlined-text-field

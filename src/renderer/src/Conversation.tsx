@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import type { TransferProgress } from '../../shared/api'
 import type { Note } from '../../shared/notes'
 import type { ChatMessage } from '../../shared/protocol'
 import { AttachmentView } from './AttachmentView'
+import { Composer } from './Composer'
 import { EmptyState } from './EmptyState'
-import { pastedFiles, sendFiles } from './files'
+import { sendFiles } from './files'
 import { formatBytes } from './format'
 import type { MenuAt } from './MessageMenu'
 import { MessageText } from './MessageText'
 import { HIT_LABEL } from './notes'
 import type { WalkieState } from './useWalkie'
-import { WalkieButton, walkieStatusText } from './WalkieButton'
+import { walkieStatusText } from './WalkieButton'
 
 type Walkie = {
   state: WalkieState
@@ -35,6 +36,7 @@ type Props = {
   onConnectByIp: () => void
   onSearchAgain: () => void
   notes: Map<string, Note>
+  topicTitle?: string
   onMessageMenu: (msg: ChatMessage, at: MenuAt) => void
 }
 
@@ -43,48 +45,16 @@ const api = window.pairlan
 const time = (ts: number) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 export function Conversation(p: Props) {
-  const [draft, setDraft] = useState('')
   const [dragging, setDragging] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
-  const fieldRef = useRef<HTMLElement>(null)
-  const lastTyping = useRef(0)
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
   }, [p.messages.length])
 
-  useEffect(() => {
-    fieldRef.current?.focus()
-  }, [])
-
-  const submit = async () => {
-    if (!draft.trim() || !p.connected) return
-    if (await p.onSend(draft)) setDraft('')
-  }
-
   const send = async (files: File[]) => {
     if (!p.connected || files.length === 0) return
     p.onAttached(await sendFiles(files))
-  }
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-      e.preventDefault()
-      void submit()
-      return
-    }
-    const now = Date.now()
-    if (now - lastTyping.current > 2000) {
-      lastTyping.current = now
-      p.onTyping()
-    }
-  }
-
-  const onPaste = (e: ClipboardEvent) => {
-    const files = pastedFiles(e)
-    if (files.length === 0) return
-    e.preventDefault()
-    void send(files)
   }
 
   const onDrop = (e: DragEvent) => {
@@ -115,7 +85,9 @@ export function Conversation(p: Props) {
       )}
 
       <div className="messages" ref={listRef} role="log" aria-live="polite" aria-label="Mensagens">
-        {p.messages.length === 0 ? (
+        {p.messages.length === 0 && p.topicTitle ? (
+          <p className="topic-empty type-body-medium">Nenhuma mensagem em #{p.topicTitle} ainda.</p>
+        ) : p.messages.length === 0 ? (
           <EmptyState
             connected={p.connected}
             searching={p.searching}
@@ -173,43 +145,15 @@ export function Conversation(p: Props) {
         </div>
       )}
 
-      <div className="composer">
-        <md-icon-button
-          onClick={() => void api.pickFiles().then(p.onAttached)}
-          disabled={!p.connected}
-          aria-label="Anexar arquivo"
-          title="Anexar arquivo (ou arraste / cole)"
-        >
-          <md-icon>attach_file</md-icon>
-        </md-icon-button>
-        <md-outlined-text-field
-          ref={fieldRef}
-          className="composer-field"
-          type="textarea"
-          rows={2}
-          value={draft}
-          aria-label="Mensagem"
-          placeholder={p.connected ? 'Mensagem — ``` para código' : 'Escreva; envia quando o par conectar'}
-          oninput={(e: Event) => setDraft((e.target as HTMLTextAreaElement).value)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-        />
-        <md-filled-icon-button
-          onClick={() => void submit()}
-          disabled={!p.connected || !draft.trim()}
-          aria-label="Enviar"
-          title="Enviar (Enter)"
-        >
-          <md-icon>send</md-icon>
-        </md-filled-icon-button>
-        <WalkieButton
-          state={p.walkie.state}
-          peerLive={p.walkie.peerLive}
-          disabled={!p.connected}
-          onStart={() => void p.walkie.startTalking()}
-          onStop={() => void p.walkie.stopTalking()}
-        />
-      </div>
+      <Composer
+        connected={p.connected}
+        placeholder={p.connected ? (p.topicTitle ? `Mensagem em #${p.topicTitle}` : 'Mensagem') : 'Escreva; envia quando o par conectar'}
+        walkie={p.walkie}
+        onSend={p.onSend}
+        onAttach={() => void api.pickFiles().then(p.onAttached)}
+        onFiles={(files) => void send(files)}
+        onTyping={p.onTyping}
+      />
     </section>
   )
 }

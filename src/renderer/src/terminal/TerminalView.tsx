@@ -15,6 +15,9 @@ import type { useAlerts } from '../useAlerts'
 import type { useScreenShare } from '../useScreenShare'
 import type { useSystemAudio } from '../useSystemAudio'
 import { copyText, flashElement, type NotesApi } from '../useNotes'
+import type { TopicsApi } from '../useTopics'
+import { GENERAL, messagesIn, resolveTopic, splitDuration } from '../topics'
+import { DURATION_LABEL, expiresIn, isTopicDuration, type Topic } from '../../../shared/topics'
 import type { useWalkie } from '../useWalkie'
 import { walkieStatusText } from '../WalkieButton'
 import { completeCommand, helpText, parseInput, type CommandName } from './commands'
@@ -28,7 +31,7 @@ const api = window.pairlan
 
 const SPINNER = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 
-type LocalLine = { id: number; ts: number; kind: 'cmd' | 'out' | 'err'; text: string; action?: SnackbarAction }
+type LocalLine = { id: number; ts: number; kind: 'cmd' | 'out' | 'err'; text: string; action?: SnackbarAction; actions?: SnackbarAction[] }
 
 type Props = {
   self: PeerInfo
@@ -56,6 +59,7 @@ type Props = {
   internet: InternetStatus
   alerts: ReturnType<typeof useAlerts>
   notes: NotesApi
+  topics: TopicsApi
 }
 
 const progressBar = (done: number, total: number) => {
@@ -96,8 +100,11 @@ export function TerminalView(p: Props) {
   useTicker(true, 30_000)
   const showScreen = connected && (p.share.remoteSharing || p.share.remoteStream !== null)
 
-  const push = (kind: LocalLine['kind'], text: string, action?: SnackbarAction) =>
-    setLocal((prev) => [...prev, { id: ++seq.current, ts: Date.now(), kind, text, action }])
+  const push = (kind: LocalLine['kind'], text: string, action?: SnackbarAction | SnackbarAction[]) =>
+    setLocal((prev) => [
+      ...prev,
+      Array.isArray(action) ? { id: ++seq.current, ts: Date.now(), kind, text, actions: action } : { id: ++seq.current, ts: Date.now(), kind, text, action }
+    ])
 
   const { notice, onDismissNotice } = p
   useEffect(() => {
@@ -112,7 +119,7 @@ export function TerminalView(p: Props) {
   }, [seenAlert, peerName])
 
   const feed = [
-    ...p.messages.map((m) => ({ key: `m${m.id}`, ts: m.ts, msg: m })),
+    ...p.topics.visible.map((m) => ({ key: `m${m.id}`, ts: m.ts, msg: m })),
     ...local.map((l) => ({ key: `l${l.id}`, ts: l.ts, line: l }))
   ]
     .filter((item) => item.ts >= clearedAt)
@@ -137,12 +144,109 @@ export function TerminalView(p: Props) {
     setJumpTo(null)
   }, [notesOpen, jumpTo])
 
+  const switchRef = useRef(switchTopicByIndex)
+  function switchTopicByIndex(n: number) {
+    const key = n === 0 ? GENERAL : p.topics.topics[n - 1]?.id
+    if (key !== undefined && key !== p.topics.active) switchTopic(key)
+  }
+  switchRef.current = switchTopicByIndex
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || !/^Digit\d$/.test(e.code)) return
+      e.preventDefault()
+      switchRef.current(Number(e.code.slice(5)))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const restoreAction = (note: Note) => ({ label: 'desfazer', run: () => void p.notes.restore(note).then(() => push('out', 'nota de volta.')) })
 
   const needPeer = () => {
     if (connected) return true
     push('err', 'pairlan: sem par conectado')
     return false
+  }
+
+  const topicLabel = (t: Topic | null) => (t ? `#${t.title}` : 'geral')
+  const current = p.topics.topic
+
+  const topicList = () => {
+    const rows = [{ key: GENERAL, title: 'geral', topic: null as Topic | null }, ...p.topics.topics.map((t) => ({ key: t.id, title: t.title, topic: t }))]
+    const width = Math.min(24, Math.max(...rows.map((r) => r.title.length + (r.topic?.expiresAt ? 2 : 0)))) + 2
+    const lines = rows.map((r, i) => {
+      const last = p.topics.last.get(r.key)
+      const n = p.topics.unread.get(r.key) ?? 0
+      const name = `${r.title.slice(0, 22)}${r.topic?.expiresAt ? ' ⏱' : ''}`.padEnd(width)
+      const body = last ? `${clock(last.ts)}  ${preview(last.attachment ? `[anexo] ${last.attachment.name}` : last.text, 30)}` : 'sem mensagens'
+      const extra = [n ? `(${n} novas)` : '', r.topic?.expiresAt ? `apaga em ${expiresIn(r.topic.expiresAt)}` : ''].filter(Boolean).join(' ')
+      return `${r.key === p.topics.active ? '*' : ' '} ${String(i).padStart(2)}  ${name}${body}${extra ? `  ${extra}` : ''}`
+    })
+    return [...lines, '', '  /topico n troca · alt+0..9 também · /topico novo nome [1h|1d|7d|30d]'].join('\n')
+  }
+
+  const switchTopic = (key: string) => {
+    p.topics.setActive(key)
+    const t = p.topics.topics.find((x) => x.id === key) ?? null
+    push('out', `── ${topicLabel(t)}${t?.expiresAt ? ` · apaga em ${expiresIn(t.expiresAt)}` : ''} ──`)
+  }
+
+  const exportCurrent = async (topic: Topic | null) => {
+    const result = await api.exportTopic(topic?.id ?? null)
+    if (result.ok) push('out', `salvo em ${result.path}`, { label: 'pasta', run: () => api.revealExport(result.path) })
+    else if (result.error) push('err', `pairlan: ${result.error.toLowerCase()}`)
+    else push('out', 'cancelado.')
+    return result.ok
+  }
+
+  const topicCommand = async (arg: string) => {
+    const [verb, ...restWords] = arg.split(/\s+/)
+    const rest = restWords.join(' ')
+    switch (verb.toLowerCase()) {
+      case '':
+        return push('out', `você está em ${topicLabel(current)}. veja /topicos e /help.`)
+      case 'novo': {
+        const { title, duration } = splitDuration(rest)
+        if (!title) return push('err', 'uso: /topico novo nome [1h|1d|7d|30d]')
+        const created = await p.topics.create(title, duration)
+        if (!created) return push('err', 'pairlan: não deu para criar o tópico')
+        const index = p.topics.topics.length + 1
+        return push('out', `tópico ${index}:${created.title} criado${duration ? `. apaga em ${DURATION_LABEL[duration]}, nos dois pcs` : ''}. ${peerName || 'o par'} também vê.`)
+      }
+      case 'renomear':
+        if (!current) return push('err', 'pairlan: o geral não pode ser renomeado. troque para um tópico.')
+        if (!rest) return push('err', 'uso: /topico renomear novo nome')
+        return push((await api.renameTopic(current.id, rest)) ? 'out' : 'err', `${topicLabel(current)} renomeado.`)
+      case 'prazo': {
+        if (!current) return push('err', 'pairlan: o geral não tem prazo. troque para um tópico.')
+        const word = rest.toLowerCase()
+        if (word !== 'off' && !isTopicDuration(word)) return push('err', 'uso: /topico prazo 1h|1d|7d|30d|off')
+        await api.setTopicExpiry(current.id, word === 'off' ? null : word)
+        return push('out', word === 'off' ? `${topicLabel(current)} não apaga mais sozinho.` : `${topicLabel(current)} agora apaga em ${DURATION_LABEL[word as keyof typeof DURATION_LABEL]}. /topico prazo off desfaz.`)
+      }
+      case 'salvar':
+        return void (await exportCurrent(current))
+      case 'apagar': {
+        if (!current) return push('err', 'pairlan: o geral não pode ser apagado. use /apagar para limpar o histórico.')
+        const topic = current
+        const count = messagesIn(p.messages, topic.id, p.topics.known).length
+        const drop = async (saveFirst: boolean) => {
+          if (saveFirst && !(await exportCurrent(topic))) return
+          await api.deleteTopic(topic.id)
+          push('out', `${topicLabel(topic)} apagado.`)
+        }
+        return push('err', `apagar ${topicLabel(topic)} e ${count === 1 ? 'a mensagem' : `as ${count} mensagens`} nos dois pcs? as notas salvas continuam.`, [
+          { label: '[s] salvar e apagar', run: () => void drop(true) },
+          { label: '[a] só apagar', run: () => void drop(false) },
+          { label: '[n] cancelar', run: () => push('out', 'nada apagado.') }
+        ])
+      }
+      default: {
+        const key = resolveTopic(arg, p.topics.topics)
+        if (key === undefined) return push('err', `pairlan: tópico não encontrado: ${arg} (veja /topicos)`)
+        return switchTopic(key ?? GENERAL)
+      }
+    }
   }
 
   const run = async (name: CommandName, arg: string) => {
@@ -227,7 +331,8 @@ export function TerminalView(p: Props) {
       case 'salvar': {
         const hit = parseHitArg(arg)
         if (hit === undefined) return push('err', 'uso: /salvar  ou  /salvar vermelho|amarelo|verde')
-        const target = [...p.messages].reverse().find((m) => m.from !== p.self.id) ?? p.messages[p.messages.length - 1]
+        const pool = p.topics.visible
+        const target = [...pool].reverse().find((m) => m.from !== p.self.id) ?? pool[pool.length - 1]
         if (!target) return push('err', 'pairlan: nenhuma mensagem para salvar')
         await p.notes.save(target, hit)
         const body = target.attachment ? `[anexo] ${target.attachment.name}` : target.text
@@ -235,6 +340,10 @@ export function TerminalView(p: Props) {
       }
       case 'notas':
         return setNotesQuery(arg)
+      case 'topicos':
+        return push('out', topicList())
+      case 'topico':
+        return topicCommand(arg)
       case 'config':
         return setConfigOpen(true)
       case 'tema':
@@ -357,7 +466,8 @@ export function TerminalView(p: Props) {
     </button>
   )
 
-  const windows = configOpen ? '0:chat 1:config*' : notesOpen ? '0:chat 1:notas*' : showScreen ? '0:chat 1:tela*' : '0:chat*'
+  const overlay = configOpen ? 'config' : notesOpen ? 'notas' : showScreen ? 'tela' : ''
+  const windows = [{ key: GENERAL, title: 'geral', temp: false }, ...p.topics.topics.map((t) => ({ key: t.id, title: t.title.replace(/\s+/g, '-'), temp: t.expiresAt !== null }))]
   const right = connected
     ? `${peerName} ${p.status.state === 'connected' && p.status.via === 'internet' ? 'internet' : (p.status.address ?? '')}${showScreen ? ' · vendo tela' : ''}`
     : p.status.state === 'connecting'
@@ -396,7 +506,13 @@ export function TerminalView(p: Props) {
         >
           <div className="term-log" ref={logRef} role="log" aria-live="polite" aria-label="Mensagens">
             <PowerLine path={p.config.terminalPath} branch={p.config.terminalBranch} />
-            {promptLine('tail -f chat.log')}
+            {promptLine(current ? `tail -f topicos/${current.title.replace(/\s+/g, '-')}.log` : 'tail -f chat.log')}
+            {current && (
+              <p className="term-line term-dim">
+                ── #{current.title}
+                {current.expiresAt ? ` · ⏱ apaga em ${expiresIn(current.expiresAt)}` : ''} · /topico 0 volta ao geral ──
+              </p>
+            )}
             {feed.map((item) =>
               'msg' in item && item.msg ? (
                 <TermMessage
@@ -412,14 +528,14 @@ export function TerminalView(p: Props) {
                 ) : (
                   <p key={item.key} className={item.line.kind === 'err' ? 'term-line term-err' : 'term-line'}>
                     {item.line.text}
-                    {item.line.action && (
-                      <>
+                    {(item.line.actions ?? (item.line.action ? [item.line.action] : [])).map((action) => (
+                      <span key={action.label}>
                         {' '}
-                        <button type="button" className="term-link" onClick={item.line.action.run}>
-                          {item.line.action.label.toLowerCase()}
+                        <button type="button" className="term-link" onClick={action.run}>
+                          {action.label.toLowerCase()}
                         </button>
-                      </>
-                    )}
+                      </span>
+                    ))}
                   </p>
                 )
               ) : null
@@ -456,6 +572,7 @@ export function TerminalView(p: Props) {
           <PowerLine path={p.config.terminalPath} branch={p.config.terminalBranch} />
           <label className="term-prompt">
             <span className="term-chev">❯ </span>
+            {current && <span className="term-dim term-topic-tag">#{current.title} </span>}
             <textarea
               ref={inputRef}
               className="term-input"
@@ -501,6 +618,7 @@ export function TerminalView(p: Props) {
               initialQuery={notesQuery}
               onClose={() => setNotesQuery(null)}
               onShow={(id) => {
+                p.topics.setActive(p.notes.notes.find((n) => n.messageId === id)?.topic ?? GENERAL)
                 setJumpTo(id)
                 setNotesQuery(null)
               }}
@@ -533,7 +651,24 @@ export function TerminalView(p: Props) {
 
       <footer className="term-status">
         <span className="term-status-name">[pair]</span>
-        <span className="term-status-win">{windows}</span>
+        {windows.map((w, i) => {
+          const on = w.key === p.topics.active && !overlay
+          const fresh = (p.topics.unread.get(w.key) ?? 0) > 0 && w.key !== p.topics.active
+          const label = `${i}:${w.title.length > 14 ? `${w.title.slice(0, 13)}…` : w.title}${on ? '*' : ''}${fresh ? '+' : ''}${w.temp ? '⏱' : ''}`
+          return (
+            <button
+              key={w.key || 'geral'}
+              type="button"
+              className={on ? 'term-seg term-win on' : 'term-seg term-win'}
+              aria-current={w.key === p.topics.active}
+              title={`${w.title}${fresh ? ' (mensagens novas)' : ''} · alt+${i}`}
+              onClick={() => switchTopicByIndex(i)}
+            >
+              {label}
+            </button>
+          )
+        })}
+        {overlay && <span className="term-status-win">{`${windows.length}:${overlay}*`}</span>}
         {connected ? (
           <>
             {seg('tela', p.share.sharing, () => void run('tela', ''), '/tela — compartilhar minha tela')}

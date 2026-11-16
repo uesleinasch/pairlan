@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppConfig, InternetStatus, LinkStatus, TransferProgress, WifiDirectStatus } from '../../shared/api'
 import type { Note } from '../../shared/notes'
+import type { Topic, TopicDuration } from '../../shared/topics'
 import type { ChatMessage, PeerInfo } from '../../shared/protocol'
 import { Conversation } from './Conversation'
 import { MediaControls } from './MediaControls'
 import { MessageMenu, type MenuAt } from './MessageMenu'
 import { HIT_LABEL, noteBody } from './notes'
 import { NotesView } from './NotesView'
+import { ConversationsView } from './ConversationsView'
+import { TopicBar } from './TopicBar'
+import { DeleteTopicDialog, TopicDialog, type TopicDialogMode } from './TopicDialogs'
+import { GENERAL, messagesIn } from './topics'
+import { useTopics } from './useTopics'
 import { setIceServers } from './rtc'
 import { incomingText } from './alerts'
 import { ScreenView } from './ScreenView'
@@ -60,6 +66,12 @@ export function App() {
   const systemAudio = useSystemAudio(connected, config?.liveAudio ?? true, ducked)
   const alerts = useAlerts(connected)
   const notes = useNotes()
+  const dropTopicMessages = useCallback((id: string) => setMessages((prev) => prev.filter((m) => m.topic !== id)), [])
+  const topics = useTopics(messages, self?.id ?? '', dropTopicMessages)
+  const { setTopics } = topics
+  const [convOpen, setConvOpen] = useState(false)
+  const [topicDialog, setTopicDialog] = useState<TopicDialogMode | null>(null)
+  const [deleting, setDeleting] = useState<Topic | null>(null)
   const [notesOpen, setNotesOpen] = useState(false)
   const [menu, setMenu] = useState<{ msg: ChatMessage; at: MenuAt } | null>(null)
   const [jumpTo, setJumpTo] = useState<string | null>(null)
@@ -71,6 +83,7 @@ export function App() {
       setStatus(s.status)
       setSearching(s.searching)
       setMessages(s.history)
+      setTopics(s.topics)
       setWifi(s.wifiDirect)
       setInternet(s.internet)
       setIceServers(s.iceServers)
@@ -102,7 +115,7 @@ export function App() {
       })
     ]
     return () => offs.forEach((off) => off())
-  }, [])
+  }, [setTopics])
 
   const { show } = snackbar
   useEffect(() => {
@@ -233,12 +246,37 @@ export function App() {
         internet={internet}
         alerts={alerts}
         notes={notes}
+        topics={topics}
       />
     )
   }
 
   const copy = (text: string) => void copyText(text).then((ok) => show(ok ? 'Copiado.' : 'Não deu para copiar.', undefined, ok ? 'info' : 'error'))
   const openNotes = { label: 'Ver notas', run: () => setNotesOpen(true) }
+  const exportTopic = async (id: string | null) => {
+    const result = await api.exportTopic(id)
+    if (result.ok) show('Salvo em arquivo.', { label: 'Mostrar', run: () => api.revealExport(result.path) }, 'info')
+    else if (result.error) show(result.error)
+    return result.ok
+  }
+  const submitTopic = (title: string, duration: TopicDuration | null) => {
+    const mode = topicDialog
+    if (!mode) return
+    if (mode.kind === 'create') void topics.create(title, duration).then((t) => (t ? setConvOpen(false) : show('Não deu para criar o tópico.')))
+    else if (mode.kind === 'rename') void api.renameTopic(mode.topic.id, title)
+    else void api.setTopicExpiry(mode.topic.id, duration)
+  }
+  const deleteTopic = async (topic: Topic, saveFirst: boolean) => {
+    if (saveFirst && !(await exportTopic(topic.id))) return
+    await api.deleteTopic(topic.id)
+    show(`#${topic.title} apagado.`, undefined, 'info')
+  }
+  const showMessage = (messageId: string) => {
+    topics.setActive(notes.notes.find((n) => n.messageId === messageId)?.topic ?? GENERAL)
+    setJumpTo(messageId)
+    setNotesOpen(false)
+  }
+
   const removeNote = (note: Note) =>
     void notes.remove(note.id).then(() => show('Nota apagada.', { label: 'Desfazer', run: () => void notes.restore(note) }, 'info'))
 
@@ -255,17 +293,30 @@ export function App() {
         <NotesView
           notes={notes.notes}
           onBack={() => setNotesOpen(false)}
-          onShow={(id) => {
-            setJumpTo(id)
-            setNotesOpen(false)
-          }}
+          onShow={showMessage}
           onHit={(id, hit) => void notes.setHit(id, hit)}
           onComment={(id, comment) => void notes.setComment(id, comment)}
           onRemove={removeNote}
           onCopy={(note) => copy(noteBody(note))}
         />
       )}
-      <div className="chat-pane" hidden={notesOpen}>
+      {convOpen && (
+        <ConversationsView
+          topics={topics.topics}
+          last={topics.last}
+          unread={topics.unread}
+          active={topics.active}
+          selfId={self.id}
+          peerName={peerName}
+          onBack={() => setConvOpen(false)}
+          onPick={(key) => {
+            topics.setActive(key)
+            setConvOpen(false)
+          }}
+          onNew={() => setTopicDialog({ kind: 'create' })}
+        />
+      )}
+      <div className="chat-pane" hidden={notesOpen || convOpen}>
         <TopAppBar
           status={status}
           searching={searching}
@@ -275,7 +326,10 @@ export function App() {
           alert={alerts.outgoing}
           onAlert={alerts.send}
           notesCount={notes.notes.length}
-          onOpenNotes={() => setNotesOpen(true)}
+          onOpenNotes={() => {
+          setConvOpen(false)
+          setNotesOpen(true)
+        }}
         />
         {connected && alerts.incoming && (
           <div className={`alert-banner ${alerts.incoming}`} role="alert">
@@ -298,6 +352,15 @@ export function App() {
           onToggleAudio={() => (systemAudio.sharing ? systemAudio.stop() : void systemAudio.start())}
           onToggleLiveAudio={() => void api.setConfig({ liveAudio: !config.liveAudio })}
         />
+        <TopicBar
+          topic={topics.topic}
+          unreadElsewhere={topics.unreadElsewhere}
+          onOpenList={() => setConvOpen(true)}
+          onRename={() => topics.topic && setTopicDialog({ kind: 'rename', topic: topics.topic })}
+          onExpiry={() => topics.topic && setTopicDialog({ kind: 'expiry', topic: topics.topic })}
+          onExport={() => void exportTopic(topics.topic?.id ?? null)}
+          onDelete={() => setDeleting(topics.topic)}
+        />
         <div className={showScreen ? 'body split' : 'body'}>
           {showScreen && <ScreenView stream={share.remoteStream} peerName={peerName} canControl={peerControl} onRequestControl={requestControl} />}
           <div className="side">
@@ -314,7 +377,8 @@ export function App() {
             <Conversation
               selfId={self.id}
               peerName={peerName}
-              messages={messages}
+              messages={topics.visible}
+              topicTitle={topics.topic?.title}
               transfers={transfers}
               connected={connected}
               searching={searching}
@@ -359,6 +423,13 @@ export function App() {
         wifi={wifi}
         internet={internet}
         connected={connected}
+      />
+      <TopicDialog mode={topicDialog} onClose={() => setTopicDialog(null)} onSubmit={submitTopic} />
+      <DeleteTopicDialog
+        topic={deleting}
+        count={deleting ? messagesIn(messages, deleting.id, topics.known).length : 0}
+        onClose={() => setDeleting(null)}
+        onDelete={(saveFirst) => deleting && void deleteTopic(deleting, saveFirst)}
       />
       <Snackbar item={snackbar.item} onDismiss={snackbar.dismiss} />
     </main>
