@@ -547,13 +547,16 @@
 
 .rich-editor ul,
 .rich-editor ol,
-.bubble .text-list {
+.bubble .text-list,
+.note-text .text-list {
   margin: 4px 0;
   padding-left: 22px;
 }
 
 .rich-editor code,
-.bubble .text code {
+.bubble .text code,
+.note-text .text code,
+.note-text .text-list code {
   padding: 0 4px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--md-sys-color-on-surface) 10%, transparent);
@@ -572,7 +575,8 @@
 }
 
 .rich-editor a,
-.bubble a {
+.bubble a,
+.note-text a {
   color: inherit;
   text-decoration: underline;
 }
@@ -1177,14 +1181,25 @@ kbd {
 }
 
 .note-text {
-  display: -webkit-box;
-  margin: 0;
+  max-height: 15em;
   padding-right: 12px;
   overflow: hidden;
-  white-space: pre-wrap;
   word-break: break-word;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 8;
+}
+
+.note-text .text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.note-text .code {
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border-radius: var(--md-sys-shape-corner-extra-small, 4px);
+  background: var(--md-sys-color-surface-container-highest);
+  font-family: ui-monospace, 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
 }
 
 .note-comment {
