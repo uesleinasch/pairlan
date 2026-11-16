@@ -34,13 +34,22 @@ describe('parseWire', () => {
       { t: 'alert', level: 'yellow' },
       { t: 'alert', level: 'red' },
       { t: 'shake' },
-      { t: 'alert-seen' }
+      { t: 'alert-seen' },
+      { t: 'chat', msg: { id: '2', from: 'a', fromName: 'Ana', text: 'oi', ts: 1, topic: 't1' } },
+      { t: 'topic', topic: { id: 't1', title: 'deploy sexta', createdBy: 'a', createdAt: 1, updatedAt: 2, expiresAt: null } },
+      { t: 'topic', topic: { ...{ id: 't1', title: 'deploy sexta', createdBy: 'a', createdAt: 1, updatedAt: 2, expiresAt: null }, expiresAt: 99 } },
+      { t: 'topic-delete', id: 't1' },
+      { t: 'topics', topics: [{ id: 't1', title: 'deploy sexta', createdBy: 'a', createdAt: 1, updatedAt: 2, expiresAt: null }], deleted: ['t2'] }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
 
   it('rejects malformed input', () => {
     expect(parseWire('not json')).toBeNull()
+    expect(parseWire('{"t":"chat","msg":{"id":"1","from":"a","fromName":"A","text":"x","ts":1,"topic":"../x"}}')).toBeNull()
+    expect(parseWire('{"t":"topic","topic":{"id":"t","title":"  ","createdBy":"a","createdAt":1,"updatedAt":1,"expiresAt":null}}')).toBeNull()
+    expect(parseWire('{"t":"topic-delete","id":""}')).toBeNull()
+    expect(parseWire('{"t":"topics","topics":[{"id":"bad id"}],"deleted":["ok",3]}')).toEqual({ t: 'topics', topics: [], deleted: ['ok'] })
     expect(parseWire('null')).toBeNull()
     expect(parseWire('{"t":"nope"}')).toBeNull()
     expect(parseWire('{"t":"p2p-hello","addr":"FC:B3:AA:BC:44:FF"}')).toBeNull()

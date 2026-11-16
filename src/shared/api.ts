@@ -1,4 +1,5 @@
 import type { HitLevel, Note } from './notes'
+import type { Topic, TopicDuration } from './topics'
 import type { AlertLevel, ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
 
 export type AppConfig = {
@@ -39,6 +40,8 @@ export type InternetStatus = {
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
 
+export type ExportResult = { ok: true; path: string } | { ok: false; error: string | null }
+
 export type IceServer = { urls: string | string[]; username?: string; credential?: string }
 
 export type WifiDirectStatus = {
@@ -63,6 +66,7 @@ export type InitialState = {
   status: LinkStatus
   searching: boolean
   history: ChatMessage[]
+  topics: Topic[]
   wifiDirect: WifiDirectStatus
   internet: InternetStatus
   iceServers: IceServer[]
@@ -141,4 +145,13 @@ export type PairlanApi = {
   setNoteComment(id: string, comment: string): Promise<Note[]>
   removeNote(id: string): Promise<Note[]>
   restoreNote(note: Note): Promise<Note[]>
+  createTopic(title: string, duration: TopicDuration | null): Promise<Topic | null>
+  renameTopic(id: string, title: string): Promise<Topic | null>
+  setTopicExpiry(id: string, duration: TopicDuration | null): Promise<Topic | null>
+  deleteTopic(id: string): Promise<void>
+  setActiveTopic(id: string | null): void
+  exportTopic(id: string | null): Promise<ExportResult>
+  revealExport(path: string): void
+  onTopics(cb: (topics: Topic[]) => void): Unsubscribe
+  onTopicRemoved(cb: (id: string) => void): Unsubscribe
 }

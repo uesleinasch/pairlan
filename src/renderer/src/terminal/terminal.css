@@ -577,3 +577,12 @@
     background: transparent;
   }
 }
+
+.term-win {
+  flex: none;
+}
+
+.term-topic-tag {
+  flex: none;
+  white-space: pre;
+}

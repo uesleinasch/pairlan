@@ -15,6 +15,7 @@ type Options = {
   history: History
   dir: string
   self: () => PeerInfo
+  topic: () => string | null
   onMessage: (msg: StoredMessage) => void
   onProgress: (p: TransferProgress) => void
 }
@@ -115,6 +116,8 @@ export class AttachmentService {
       ts: Date.now(),
       attachment: { name, size, mime: guessMime(name) }
     }
+    const topic = this.opts.topic()
+    if (topic) msg.topic = topic
     const { link } = this.opts
     if (!(await link.sendAsync({ t: 'file-start', msg }))) return null
 

@@ -36,6 +36,7 @@ type Props = {
   onConnectByIp: () => void
   onSearchAgain: () => void
   notes: Map<string, Note>
+  topicTitle?: string
   onMessageMenu: (msg: ChatMessage, at: MenuAt) => void
 }
 
@@ -84,7 +85,9 @@ export function Conversation(p: Props) {
       )}
 
       <div className="messages" ref={listRef} role="log" aria-live="polite" aria-label="Mensagens">
-        {p.messages.length === 0 ? (
+        {p.messages.length === 0 && p.topicTitle ? (
+          <p className="topic-empty type-body-medium">Nenhuma mensagem em #{p.topicTitle} ainda.</p>
+        ) : p.messages.length === 0 ? (
           <EmptyState
             connected={p.connected}
             searching={p.searching}
@@ -144,7 +147,7 @@ export function Conversation(p: Props) {
 
       <Composer
         connected={p.connected}
-        placeholder={p.connected ? 'Mensagem' : 'Escreva; envia quando o par conectar'}
+        placeholder={p.connected ? (p.topicTitle ? `Mensagem em #${p.topicTitle}` : 'Mensagem') : 'Escreva; envia quando o par conectar'}
         walkie={p.walkie}
         onSend={p.onSend}
         onAttach={() => void api.pickFiles().then(p.onAttached)}

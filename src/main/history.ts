@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { isChatMessage } from '../shared/protocol'
 import type { StoredMessage } from './transfer'
@@ -14,6 +14,16 @@ export class History {
 
   clear(): void {
     writeFileSync(this.file, '')
+  }
+
+  removeTopic(topic: string): number {
+    const all = this.load(Number.MAX_SAFE_INTEGER)
+    const keep = all.filter((m) => m.topic !== topic)
+    if (keep.length === all.length) return 0
+    const tmp = `${this.file}.tmp`
+    writeFileSync(tmp, keep.map((m) => JSON.stringify(m) + '\n').join(''))
+    renameSync(tmp, this.file)
+    return all.length - keep.length
   }
 
   load(limit = 500): StoredMessage[] {

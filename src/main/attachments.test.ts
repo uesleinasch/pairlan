@@ -22,6 +22,7 @@ function peer(id: string) {
     link,
     history: new History(join(dir, 'history.jsonl')),
     dir: join(dir, 'files'),
+    topic: () => null,
     self: () => ({ id, name: id }),
     onMessage: (m) => received.push(m),
     onProgress: () => undefined

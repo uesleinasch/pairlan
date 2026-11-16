@@ -68,7 +68,16 @@ const api: PairlanApi = {
   setNoteHit: (id, hit) => ipcRenderer.invoke('notes:hit', id, hit),
   setNoteComment: (id, comment) => ipcRenderer.invoke('notes:comment', id, comment),
   removeNote: (id) => ipcRenderer.invoke('notes:remove', id),
-  restoreNote: (note) => ipcRenderer.invoke('notes:restore', note)
+  restoreNote: (note) => ipcRenderer.invoke('notes:restore', note),
+  createTopic: (title, duration) => ipcRenderer.invoke('topics:create', title, duration),
+  renameTopic: (id, title) => ipcRenderer.invoke('topics:rename', id, title),
+  setTopicExpiry: (id, duration) => ipcRenderer.invoke('topics:expiry', id, duration),
+  deleteTopic: (id) => ipcRenderer.invoke('topics:delete', id),
+  setActiveTopic: (id) => ipcRenderer.send('topics:active', id),
+  exportTopic: (id) => ipcRenderer.invoke('topics:export', id),
+  revealExport: (path) => ipcRenderer.send('topics:reveal', path),
+  onTopics: (cb) => listen('topics:changed', cb),
+  onTopicRemoved: (cb) => listen('topics:removed', cb)
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)
