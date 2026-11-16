@@ -196,6 +196,10 @@ async function boot(): Promise<void> {
   }
 
   const link = new PeerLink(self(), runtime.linkPort)
+  const onLan = () => {
+    const status = link.status()
+    return status.state === 'connected' && status.via === 'lan'
+  }
   const wifi = new WifiDirect()
   let peerP2p: string | null = null
   const attachments = new AttachmentService({
@@ -254,7 +258,7 @@ async function boot(): Promise<void> {
         send('chat:typing')
         break
       case 'signal':
-        if (m.payload.kind === 'ice' && !iceMatchesPeer(m.payload.candidate.candidate, link.status().address)) break
+        if (m.payload.kind === 'ice' && onLan() && !iceMatchesPeer(m.payload.candidate.candidate, link.status().address)) break
         send('rtc:signal', m.payload)
         break
       case 'share-state':

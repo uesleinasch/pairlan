@@ -24,9 +24,11 @@ export type WifiDirectStatus = {
 
 export type WifiDirectResult = { ok: true } | { ok: false; error: string }
 
+export type LinkVia = 'lan' | 'internet'
+
 export type LinkStatus =
   | { state: 'idle' | 'connecting'; peer: null; address: null }
-  | { state: 'connected'; peer: PeerInfo; address: string | null }
+  | { state: 'connected'; peer: PeerInfo; address: string | null; via: LinkVia }
 
 export type InitialState = {
   self: PeerInfo
