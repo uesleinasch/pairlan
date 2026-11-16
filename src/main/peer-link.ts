@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import type { IncomingMessage } from 'node:http'
 import { isIP } from 'node:net'
 import { WebSocket, WebSocketServer } from 'ws'
-import type { LinkStatus } from '../shared/api'
+import type { LinkStatus, LinkVia } from '../shared/api'
 import { encodeWire, parseWire, PROTOCOL_VERSION, type PeerInfo, type WireMessage } from '../shared/protocol'
 
 export function isPrivateAddress(raw: string | undefined): boolean {
@@ -35,6 +35,44 @@ const MAX_BACKOFF_MS = 10000
 
 type Target = { address: string; port: number }
 
+export abstract class LinkChannel extends EventEmitter<{ message: [string]; close: []; pong: [] }> {
+  abstract readonly open: boolean
+  abstract send(text: string, cb?: (err?: Error) => void): void
+  abstract ping(): void
+  abstract close(code: number, reason: string): void
+  abstract terminate(): void
+}
+
+class WsChannel extends LinkChannel {
+  constructor(private readonly ws: WebSocket) {
+    super()
+    ws.on('message', (data) => this.emit('message', data.toString()))
+    ws.on('pong', () => this.emit('pong'))
+    ws.on('error', () => undefined)
+    ws.once('close', () => this.emit('close'))
+  }
+
+  get open(): boolean {
+    return this.ws.readyState === WebSocket.OPEN
+  }
+
+  send(text: string, cb?: (err?: Error) => void): void {
+    this.ws.send(text, cb)
+  }
+
+  ping(): void {
+    this.ws.ping()
+  }
+
+  close(code: number, reason: string): void {
+    this.ws.close(code, reason)
+  }
+
+  terminate(): void {
+    this.ws.terminate()
+  }
+}
+
 type Events = {
   status: [LinkStatus]
   message: [WireMessage]
@@ -42,10 +80,11 @@ type Events = {
 
 export class PeerLink extends EventEmitter<Events> {
   private server: WebSocketServer | null = null
-  private socket: WebSocket | null = null
+  private socket: LinkChannel | null = null
   private pending: WebSocket | null = null
   private peer: PeerInfo | null = null
   private address: string | null = null
+  private via: LinkVia = 'lan'
   private target: Target | null = null
   private retryTimer: NodeJS.Timeout | null = null
   private heartbeat: NodeJS.Timeout | null = null
@@ -68,7 +107,7 @@ export class PeerLink extends EventEmitter<Events> {
       })
       server.once('listening', () => resolve())
       server.once('error', reject)
-      server.on('connection', (ws, req) => this.adopt(ws, req.socket.remoteAddress ?? 'desconhecido'))
+      server.on('connection', (ws, req) => this.adopt(new WsChannel(ws), req.socket.remoteAddress ?? 'desconhecido', 'lan'))
       this.server = server
     })
   }
@@ -79,7 +118,7 @@ export class PeerLink extends EventEmitter<Events> {
   }
 
   status(): LinkStatus {
-    if (this.peer && this.socket) return { state: 'connected', peer: this.peer, address: this.address }
+    if (this.peer && this.socket) return { state: 'connected', peer: this.peer, address: this.address, via: this.via }
     if (this.pending || this.socket || this.retryTimer) return { state: 'connecting', peer: null, address: null }
     return { state: 'idle', peer: null, address: null }
   }
@@ -123,16 +162,20 @@ export class PeerLink extends EventEmitter<Events> {
     this.emitStatus()
   }
 
+  attach(channel: LinkChannel): void {
+    this.adopt(channel, null, 'internet')
+  }
+
   send(m: WireMessage): boolean {
-    if (this.socket?.readyState !== WebSocket.OPEN) return false
+    if (!this.socket?.open) return false
     this.socket.send(encodeWire(m))
     return true
   }
 
   sendAsync(m: WireMessage): Promise<boolean> {
-    const ws = this.socket
-    if (ws?.readyState !== WebSocket.OPEN) return Promise.resolve(false)
-    return new Promise((resolve) => ws.send(encodeWire(m), (err) => resolve(!err)))
+    const channel = this.socket
+    if (!channel?.open) return Promise.resolve(false)
+    return new Promise((resolve) => channel.send(encodeWire(m), (err) => resolve(!err)))
   }
 
   async stop(): Promise<void> {
@@ -153,7 +196,7 @@ export class PeerLink extends EventEmitter<Events> {
     this.emitStatus()
     ws.once('open', () => {
       this.pending = null
-      this.adopt(ws, target.address)
+      this.adopt(new WsChannel(ws), target.address, 'lan')
     })
     ws.once('error', () => undefined)
     ws.once('close', () => {
@@ -163,29 +206,29 @@ export class PeerLink extends EventEmitter<Events> {
     })
   }
 
-  private adopt(ws: WebSocket, address: string): void {
+  private adopt(channel: LinkChannel, address: string | null, via: LinkVia): void {
     if (this.socket) {
-      ws.close(4000, 'busy')
+      channel.close(4000, 'busy')
       return
     }
-    this.socket = ws
+    this.socket = channel
     this.address = address
+    this.via = via
     this.attempts = 0
     this.alive = true
     this.clearRetry()
 
-    ws.on('pong', () => (this.alive = true))
-    ws.on('message', (data) => this.receive(data.toString()))
-    ws.on('error', () => undefined)
-    ws.once('close', () => this.onClose(ws))
+    channel.on('pong', () => (this.alive = true))
+    channel.on('message', (text) => this.receive(text))
+    channel.once('close', () => this.onClose(channel))
 
     this.heartbeat = setInterval(() => {
       if (!this.alive) {
-        ws.terminate()
+        channel.terminate()
         return
       }
       this.alive = false
-      ws.ping()
+      channel.ping()
     }, HEARTBEAT_MS)
 
     this.send({ t: 'hello', v: PROTOCOL_VERSION, peer: this.self })
@@ -207,8 +250,8 @@ export class PeerLink extends EventEmitter<Events> {
     if (this.peer) this.emit('message', m)
   }
 
-  private onClose(ws: WebSocket): void {
-    if (this.socket !== ws) return
+  private onClose(channel: LinkChannel): void {
+    if (this.socket !== channel) return
     if (this.heartbeat) clearInterval(this.heartbeat)
     this.heartbeat = null
     this.socket = null

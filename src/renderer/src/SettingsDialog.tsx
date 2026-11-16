@@ -1,5 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
-import type { AppConfig, WifiDirectStatus } from '../../shared/api'
+import type { ActionResult, AppConfig, InternetStatus, WifiDirectStatus } from '../../shared/api'
+import { normalizeRelayUrl } from '../../shared/relay'
+import { internetSummary } from './internet'
 import { canSwitchToWifi, wifiSummary } from './wifi'
 
 const api = window.pairlan
@@ -12,6 +14,7 @@ type Props = {
   onConnect: (address: string) => Promise<boolean>
   onClearHistory: () => Promise<void>
   wifi: WifiDirectStatus
+  internet: InternetStatus
   connected: boolean
 }
 
@@ -26,13 +29,20 @@ const SHORTCUTS: [string, string][] = [
   ['Esc', 'Fechar esta janela']
 ]
 
-export function SettingsDialog({ open, config, onClose, onChange, onConnect, onClearHistory, wifi, connected }: Props) {
+export function SettingsDialog({ open, config, onClose, onChange, onConnect, onClearHistory, wifi, internet, connected }: Props) {
   const [name, setName] = useState(config.name)
   const [address, setAddress] = useState(config.manualPeer)
   const [addressError, setAddressError] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
   const [p2pAddress, setP2pAddress] = useState(config.wifiDirectPeer)
   const [p2pError, setP2pError] = useState('')
+  const [username, setUsername] = useState(config.internetUser)
+  const [userError, setUserError] = useState('')
+  const [peerName, setPeerName] = useState('')
+  const [peerError, setPeerError] = useState('')
+  const [relayUrl, setRelayUrl] = useState(config.relayUrl)
+  const [relayError, setRelayError] = useState('')
+  const [internetBusy, setInternetBusy] = useState(false)
   const opacity = Math.round(config.opacity * 100)
 
   useEffect(() => {
@@ -43,7 +53,27 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
     setConfirmClear(false)
     setP2pAddress(config.wifiDirectPeer)
     setP2pError('')
-  }, [open, config.name, config.manualPeer, config.wifiDirectPeer])
+    setUsername(config.internetUser)
+    setUserError('')
+    setPeerName('')
+    setPeerError('')
+    setRelayUrl(config.relayUrl)
+    setRelayError('')
+  }, [open, config.name, config.manualPeer, config.wifiDirectPeer, config.internetUser, config.relayUrl])
+
+  const runInternet = async (action: () => Promise<ActionResult>, setError: (error: string) => void) => {
+    setInternetBusy(true)
+    const result = await action()
+    setInternetBusy(false)
+    setError(result.ok ? '' : result.error)
+  }
+  const register = () => void runInternet(() => api.registerInternet(username), setUserError)
+  const addPeer = () => void runInternet(() => api.addInternetPeer(peerName), setPeerError)
+  const saveRelay = () => {
+    const valid = !relayUrl.trim() || normalizeRelayUrl(relayUrl)
+    setRelayError(valid ? '' : 'Use o endereço https:// do relay.')
+    if (valid) onChange({ relayUrl: relayUrl.trim() })
+  }
 
   const startWifi = async (peer?: string) => {
     const result = await api.startWifiDirect(peer)
@@ -90,6 +120,72 @@ export function SettingsDialog({ open, config, onClose, onChange, onConnect, onC
             />
             <md-filled-tonal-button onClick={() => void connect()}>Conectar</md-filled-tonal-button>
           </div>
+        </section>
+
+        <section>
+          <h2 className="type-title-small">Internet</h2>
+          <p className="settings-note type-body-small" role="status">
+            {internetSummary(internet)}
+          </p>
+          <div className="settings-row">
+            <md-outlined-text-field
+              label="Seu usuário"
+              placeholder="ana_dev"
+              value={username}
+              maxLength={21}
+              supportingText={
+                internet.me ? `Seu código: ${internet.myFingerprint}` : '3 a 20 letras minúsculas, números ou _'
+              }
+              error={Boolean(userError)}
+              errorText={userError}
+              oninput={(e: Event) => setUsername(valueOf(e))}
+              onKeyDown={(e: KeyboardEvent) => {
+                if (e.key === 'Enter') register()
+              }}
+            />
+            <md-filled-tonal-button disabled={internetBusy || !internet.relayUrl} onClick={register}>
+              {internet.me ? 'Trocar' : 'Registrar'}
+            </md-filled-tonal-button>
+          </div>
+          {internet.me && internet.peer && (
+            <>
+              <p className="settings-note type-body-small">
+                Par: @{internet.peer}. Código do par: {internet.peerFingerprint}. Tem que ser igual ao “seu código” que
+                aparece no PC do par.
+              </p>
+              <md-text-button onClick={() => api.removeInternetPeer()}>Remover par</md-text-button>
+            </>
+          )}
+          {internet.me && !internet.peer && (
+            <div className="settings-row">
+              <md-outlined-text-field
+                label="Usuário do par"
+                placeholder="bia_dev"
+                value={peerName}
+                maxLength={21}
+                supportingText="O par também precisa adicionar você"
+                error={Boolean(peerError)}
+                errorText={peerError}
+                oninput={(e: Event) => setPeerName(valueOf(e))}
+                onKeyDown={(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') addPeer()
+                }}
+              />
+              <md-filled-tonal-button disabled={internetBusy} onClick={addPeer}>
+                Adicionar
+              </md-filled-tonal-button>
+            </div>
+          )}
+          <md-outlined-text-field
+            label="Servidor (relay)"
+            placeholder={internet.relayUrl || 'https://pairlan-relay.sua-conta.workers.dev'}
+            value={relayUrl}
+            supportingText="Vazio usa o servidor padrão do app"
+            error={Boolean(relayError)}
+            errorText={relayError}
+            oninput={(e: Event) => setRelayUrl(valueOf(e))}
+            onchange={saveRelay}
+          />
         </section>
 
         <section>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppConfig, LinkStatus, TransferProgress, WifiDirectStatus } from '../../shared/api'
+import type { AppConfig, InternetStatus, LinkStatus, TransferProgress, WifiDirectStatus } from '../../shared/api'
 import type { ChatMessage, PeerInfo } from '../../shared/protocol'
 import { Conversation } from './Conversation'
 import { MediaControls } from './MediaControls'
+import { setIceServers } from './rtc'
 import { ScreenView } from './ScreenView'
 import { SettingsDialog } from './SettingsDialog'
 import { Snackbar, useSnackbar } from './Snackbar'
@@ -14,6 +15,16 @@ import { useSystemAudio } from './useSystemAudio'
 import { useWalkie } from './useWalkie'
 
 const api = window.pairlan
+
+const NO_INTERNET: InternetStatus = {
+  state: 'off',
+  error: null,
+  relayUrl: '',
+  me: '',
+  myFingerprint: '',
+  peer: null,
+  peerFingerprint: null
+}
 
 export function App() {
   const [self, setSelf] = useState<PeerInfo | null>(null)
@@ -28,6 +39,7 @@ export function App() {
   const [peerControl, setPeerControl] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [wifi, setWifi] = useState<WifiDirectStatus>({ state: 'unsupported', self: null, peer: null, ip: null, error: null })
+  const [internet, setInternet] = useState<InternetStatus>(NO_INTERNET)
   const typingTimer = useRef<number | undefined>(undefined)
   const snackbar = useSnackbar()
 
@@ -47,10 +59,14 @@ export function App() {
       setSearching(s.searching)
       setMessages(s.history)
       setWifi(s.wifiDirect)
+      setInternet(s.internet)
+      setIceServers(s.iceServers)
     })
     const offs = [
       api.onStatus(setStatus),
       api.onWifiDirect(setWifi),
+      api.onInternet(setInternet),
+      api.onIceServers(setIceServers),
       api.onSearching(setSearching),
       api.onControlState(setControlAllowed),
       api.onPeerControl(setPeerControl),
@@ -194,6 +210,7 @@ export function App() {
         onAttached={appendMessages}
         onClearHistory={clearHistory}
         wifi={wifi}
+        internet={internet}
       />
     )
   }
@@ -259,6 +276,7 @@ export function App() {
         onConnect={api.connectManual}
         onClearHistory={clearHistory}
         wifi={wifi}
+        internet={internet}
         connected={connected}
       />
       <Snackbar item={snackbar.item} onDismiss={snackbar.dismiss} />

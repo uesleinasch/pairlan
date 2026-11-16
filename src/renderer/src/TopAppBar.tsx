@@ -18,7 +18,7 @@ export function TopAppBar({ status, searching, outgoing, onToggleSearch, onOpenS
   const title = status.state === 'connected' ? status.peer.name : 'PairLAN'
   const base =
     status.state === 'connected'
-      ? `Conectado${status.address ? ` · ${status.address}` : ''}`
+      ? `Conectado${status.via === 'internet' ? ' · via internet' : status.address ? ` · ${status.address}` : ''}`
       : status.state === 'connecting'
         ? 'Conectando…'
         : searching

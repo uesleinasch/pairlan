@@ -9,6 +9,12 @@ describe('parseInput', () => {
     expect(parseInput('/sudo rm')).toEqual({ kind: 'unknown', name: 'sudo' })
   })
 
+  it('parses the internet commands', () => {
+    expect(parseInput('/usuario ana_dev')).toEqual({ kind: 'command', name: 'usuario', arg: 'ana_dev' })
+    expect(parseInput('/par off')).toEqual({ kind: 'command', name: 'par', arg: 'off' })
+    expect(completeCommand('/pa')).toEqual(['/parar', '/par'])
+  })
+
   it('sends // as a literal slash message', () => {
     expect(parseInput('//etc/hosts')).toEqual({ kind: 'message', text: '/etc/hosts' })
   })
@@ -31,6 +37,6 @@ describe('completeCommand', () => {
 describe('helpText', () => {
   it('lists every command', () => {
     const text = helpText()
-    for (const c of ['/tela', '/conectar ip', '/tema', 'Ctrl+Espaço']) expect(text).toContain(c)
+    for (const c of ['/tela', '/conectar ip', '/tema', '/usuario [nome]', '/par [usuario|off]', 'Ctrl+Espaço']) expect(text).toContain(c)
   })
 })

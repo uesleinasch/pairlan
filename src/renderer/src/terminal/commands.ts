@@ -8,6 +8,8 @@ export type CommandName =
   | 'buscar'
   | 'conectar'
   | 'direct'
+  | 'usuario'
+  | 'par'
   | 'config'
   | 'tema'
   | 'limpar'
@@ -26,6 +28,8 @@ export const COMMANDS: CommandInfo[] = [
   { name: 'buscar', usage: '/buscar', help: 'voltar a procurar', group: 'conexão' },
   { name: 'conectar', usage: '/conectar ip', help: 'conectar direto por ip', group: 'conexão' },
   { name: 'direct', usage: '/direct [mac|off]', help: 'wi-fi direct liga / desliga (mac = endereço do par)', group: 'conexão' },
+  { name: 'usuario', usage: '/usuario [nome]', help: 'internet: registrar / ver meu usuário', group: 'conexão' },
+  { name: 'par', usage: '/par [usuario|off]', help: 'internet: adicionar / ver / remover o par', group: 'conexão' },
   { name: 'config', usage: '/config', help: 'configurações', group: 'app' },
   { name: 'tema', usage: '/tema', help: 'sair do modo terminal', group: 'app' },
   { name: 'limpar', usage: '/limpar', help: 'limpar a tela (não apaga o histórico)', group: 'app' },
