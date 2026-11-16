@@ -14,8 +14,9 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import type { ActionResult, AppConfig, InternetStatus, SoundOption } from '../shared/api'
-import { isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
+import { isAlertLevel, isP2pAddress, parseInput, parseWire, PROTOCOL_VERSION, type ChatMessage, type PeerInfo } from '../shared/protocol'
 import { AttachmentService } from './attachments'
+import { shakeWindow, Throttle } from './attention'
 import { normalizeUsername, type RelayIceServer } from '../shared/relay'
 import { ConfigStore, DISCOVERY_PORT, relayUrlOf, runtimeOptions, windowLook, type WindowLook } from './config'
 import { Discovery, shouldInitiate } from './discovery'
@@ -209,6 +210,16 @@ async function boot(): Promise<void> {
     notification.show()
   }
 
+  const alertGate = new Throttle(2000)
+  const shakeGate = new Throttle(2000)
+  const callAttention = () => {
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    else if (!win.isVisible()) win.showInactive()
+    win.flashFrame(true)
+    if (config.get().notifySound) send('sound:play')
+  }
+
   const link = new PeerLink(self(), runtime.linkPort)
   const onLan = () => {
     const status = link.status()
@@ -361,6 +372,20 @@ async function boot(): Promise<void> {
       case 'p2p-stop':
         applyConfig({ wifiDirectPeer: '' })
         void wifi.stop()
+        break
+      case 'alert':
+        if (!alertGate.take()) break
+        callAttention()
+        send('alert:incoming', m.level)
+        break
+      case 'shake':
+        if (!shakeGate.take()) break
+        callAttention()
+        setTimeout(() => win && shakeWindow(win), 150)
+        send('alert:shake')
+        break
+      case 'alert-seen':
+        send('alert:seen')
         break
     }
   })
@@ -530,6 +555,15 @@ async function boot(): Promise<void> {
   })
 
   ipcMain.on('control:request', () => link.send({ t: 'control-request' }))
+
+  ipcMain.on('alert:send', (_e, level: unknown) => {
+    if (isAlertLevel(level)) link.send({ t: 'alert', level })
+  })
+  ipcMain.on('alert:shake', () => link.send({ t: 'shake' }))
+  ipcMain.on('alert:ack', () => {
+    win?.flashFrame(false)
+    link.send({ t: 'alert-seen' })
+  })
 
   ipcMain.on('input:send', (_e, input: unknown) => {
     const parsed = parseInput(input)

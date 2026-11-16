@@ -30,7 +30,11 @@ describe('parseWire', () => {
       { t: 'input', input: { kind: 'key', code: 'KeyA', down: false } },
       { t: 'p2p-hello', addr: 'fc:b3:aa:bc:44:ff' },
       { t: 'p2p-start' },
-      { t: 'p2p-stop' }
+      { t: 'p2p-stop' },
+      { t: 'alert', level: 'yellow' },
+      { t: 'alert', level: 'red' },
+      { t: 'shake' },
+      { t: 'alert-seen' }
     ]
     for (const m of messages) expect(parseWire(encodeWire(m))).toEqual(m)
   })
@@ -58,6 +62,8 @@ describe('parseWire', () => {
     expect(parseWire('{"t":"laser","x":1.2,"y":0,"click":false}')).toBeNull()
     expect(parseWire('{"t":"laser","x":0.5,"y":0.5}')).toBeNull()
     expect(parseWire('{"t":"control-state"}')).toBeNull()
+    expect(parseWire('{"t":"alert","level":"green"}')).toBeNull()
+    expect(parseWire('{"t":"alert"}')).toBeNull()
     expect(parseWire('{"t":"input","input":{"kind":"move","x":-1,"y":0}}')).toBeNull()
     expect(parseWire('{"t":"input","input":{"kind":"scroll","dx":0,"dy":500}}')).toBeNull()
     expect(parseWire('{"t":"input","input":{"kind":"key","code":"KeyA"}}')).toBeNull()

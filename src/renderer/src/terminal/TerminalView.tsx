@@ -3,10 +3,12 @@ import type { AppConfig, InternetStatus, LinkStatus, TransferProgress, WifiDirec
 import { normalizeUsername } from '../../../shared/relay'
 import type { ChatMessage, PeerInfo } from '../../../shared/protocol'
 import { pastedFiles, sendFiles } from '../files'
+import { incomingText } from '../alerts'
 import { formatBytes } from '../format'
 import { internetSummary } from '../internet'
 import { ScreenView } from '../ScreenView'
 import type { SnackbarAction, SnackbarItem } from '../Snackbar'
+import type { useAlerts } from '../useAlerts'
 import type { useScreenShare } from '../useScreenShare'
 import type { useSystemAudio } from '../useSystemAudio'
 import type { useWalkie } from '../useWalkie'
@@ -47,6 +49,7 @@ type Props = {
   onClearHistory: () => Promise<void>
   wifi: WifiDirectStatus
   internet: InternetStatus
+  alerts: ReturnType<typeof useAlerts>
 }
 
 const progressBar = (done: number, total: number) => {
@@ -94,6 +97,11 @@ export function TerminalView(p: Props) {
     onDismissNotice()
   }, [notice, onDismissNotice])
 
+  const seenAlert = p.alerts.outgoing?.seen === true
+  useEffect(() => {
+    if (seenAlert) setLocal((prev) => [...prev, { id: ++seq.current, ts: Date.now(), kind: 'out', text: `${peerName} viu o alerta.` }])
+  }, [seenAlert, peerName])
+
   const feed = [
     ...p.messages.map((m) => ({ key: `m${m.id}`, ts: m.ts, msg: m })),
     ...local.map((l) => ({ key: `l${l.id}`, ts: l.ts, line: l }))
@@ -136,6 +144,17 @@ export function TerminalView(p: Props) {
       case 'controle':
         if (!p.share.sharing) return push('err', 'pairlan: compartilhe a tela antes (/tela)')
         return p.onToggleControl()
+      case 'alerta': {
+        if (!needPeer()) return
+        const level = !arg || /^amarel/i.test(arg) ? 'yellow' : /^verm/i.test(arg) ? 'red' : null
+        if (!level) return push('err', 'uso: /alerta  ou  /alerta vermelho')
+        p.alerts.send(level)
+        return push('out', `alerta ${level === 'red' ? 'vermelho' : 'amarelo'} enviado. aguardando ${peerName}…`)
+      }
+      case 'chacoalhar':
+        if (!needPeer()) return
+        p.alerts.send('shake')
+        return push('out', `janela de ${peerName} chacoalhada.`)
       case 'anexo':
         if (!needPeer()) return
         return p.onAttached(await api.pickFiles())
@@ -284,6 +303,16 @@ export function TerminalView(p: Props) {
       )
     }
   } else {
+    if (p.alerts.incoming) {
+      tail.push(
+        <p key="a" className={`term-line term-alert ${p.alerts.incoming}`} role="alert">
+          !! {incomingText(p.alerts.incoming, peerName).toLowerCase()}{' '}
+          <button type="button" className="term-link" onClick={p.alerts.ack}>
+            [vi]
+          </button>
+        </p>
+      )
+    }
     if (p.walkie.incoming) tail.push(<p key="v" className="term-line term-warn">-- {peerName} está falando…</p>)
     if (walkieText) tail.push(<p key="w" className="term-line term-warn">-- {walkieText.toLowerCase()}</p>)
     else if (p.peerTyping) tail.push(<p key="t" className="term-line term-dim">-- {peerName} está digitando…</p>)
@@ -306,7 +335,15 @@ export function TerminalView(p: Props) {
   const talking = p.walkie.state === 'on-air' || p.walkie.state === 'recording'
 
   return (
-    <main className="term-app">
+    <main
+      className={[
+        'term-app',
+        p.alerts.incoming && p.alerts.incoming !== 'shake' ? `alert-${p.alerts.incoming}` : '',
+        p.alerts.shaking ? 'shaking' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div className={showScreen ? 'term-body split' : 'term-body'}>
         {showScreen && <ScreenView variant="terminal" stream={p.share.remoteStream} peerName={peerName} canControl={p.peerControl} onRequestControl={p.onRequestControl} />}
         <section
@@ -426,6 +463,7 @@ export function TerminalView(p: Props) {
             {seg('tela', p.share.sharing, () => void run('tela', ''), '/tela — compartilhar minha tela')}
             {seg('audio', p.systemAudio.sharing, () => void run('audio', ''), '/audio — transmitir o áudio do PC', p.systemAudio.starting)}
             {seg('ouvir', p.config.liveAudio, () => void run('ouvir', ''), '/ouvir — voz do par toca na hora')}
+            {seg('alerta', p.alerts.outgoing !== null && !p.alerts.outgoing.seen, () => void run('alerta', ''), '/alerta — chamar atenção do par')}
             {p.wifi.state !== 'unsupported' &&
               seg('direct', p.wifi.state === 'on', () => void run('direct', ''), '/direct — wi-fi direct', p.wifi.state === 'connecting')}
             {p.share.sharing && seg('controle', p.controlAllowed, p.onToggleControl, '/controle — liberar meu mouse e teclado', p.controlBusy)}

@@ -56,7 +56,13 @@ const api: PairlanApi = {
   listSounds: () => ipcRenderer.invoke('sound:list'),
   soundData: () => ipcRenderer.invoke('sound:data'),
   pickSound: () => ipcRenderer.invoke('sound:pick'),
-  onPlaySound: (cb) => listen('sound:play', () => cb())
+  onPlaySound: (cb) => listen('sound:play', () => cb()),
+  sendAlert: (level) => ipcRenderer.send('alert:send', level),
+  sendShake: () => ipcRenderer.send('alert:shake'),
+  ackAlert: () => ipcRenderer.send('alert:ack'),
+  onAlert: (cb) => listen('alert:incoming', cb),
+  onShake: (cb) => listen('alert:shake', () => cb()),
+  onAlertSeen: (cb) => listen('alert:seen', () => cb())
 }
 
 contextBridge.exposeInMainWorld('pairlan', api)

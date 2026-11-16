@@ -1,4 +1,4 @@
-import type { ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
+import type { AlertLevel, ChatMessage, PeerInfo, RemoteInput, SignalPayload } from './protocol'
 
 export type AppConfig = {
   id: string
@@ -128,4 +128,10 @@ export type PairlanApi = {
   soundData(): Promise<string | null>
   pickSound(): Promise<ActionResult>
   onPlaySound(cb: () => void): Unsubscribe
+  sendAlert(level: AlertLevel): void
+  sendShake(): void
+  ackAlert(): void
+  onAlert(cb: (level: AlertLevel) => void): Unsubscribe
+  onShake(cb: () => void): Unsubscribe
+  onAlertSeen(cb: () => void): Unsubscribe
 }
