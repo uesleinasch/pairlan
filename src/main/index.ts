@@ -106,7 +106,10 @@ function createWindow(alwaysOnTop: boolean, look: WindowLook): BrowserWindow {
   w.setContentProtection(true)
   w.webContents.on('will-navigate', (e) => e.preventDefault())
   w.on('page-title-updated', (e) => e.preventDefault())
-  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  w.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
   w.once('ready-to-show', () => {
     w.show()
     w.setAlwaysOnTop(alwaysOnTop)
